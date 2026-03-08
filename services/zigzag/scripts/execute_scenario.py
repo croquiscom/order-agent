@@ -639,12 +639,10 @@ def _ask_choice_from_options(options: list[str], prompt: str) -> str | None:
             return options[idx]
 
     if not sys.stdin.isatty():
-        rendered = "; ".join(f"{i+1}:{opt}" for i, opt in enumerate(options[:20]))
-        raise RuntimeError(
-            "ASK_REASON_REQUIRED: __ASK__ needs interactive tty input. "
-            "Set ORDER_AGENT_REASON_INDEX (1-based) or ORDER_AGENT_REASON_TEXT. "
-            f"options=[{rendered}]"
-        )
+        import logging as _logging
+        _log = _logging.getLogger("order-agent-exec")
+        _log.info("Non-interactive mode: auto-selecting first option '%s'", options[0])
+        return options[0]
 
     print("")
     print(f"[askQuestion] {prompt}")
