@@ -2440,6 +2440,7 @@ def run_scenario(
     keep_alive_interval_sec: int = 8,
     keep_browser_open: bool = False,
     scenario_vars: dict[str, str] | None = None,
+    base_url: str | None = None,
 ) -> int:
     logger = setup_logger("order-agent-exec")
     _self_heal_log.clear()
@@ -2484,6 +2485,10 @@ def run_scenario(
     scenario_start = time.time()
     try:
         _vars = scenario_vars or {}
+        _default_base_url = "https://alpha.zigzag.kr"
+        _base_url = (base_url or "").rstrip("/") if base_url else None
+        if _base_url:
+            logger.info("Base URL override: %s → %s", _default_base_url, _base_url)
         for idx, command in enumerate(commands, 1):
             step_start_times.append(time.time())
             # {{var}} 치환
@@ -2493,6 +2498,10 @@ def run_scenario(
                 for a in command.args:
                     expanded.append(_re.sub(r"\{\{(\w+)\}\}", lambda m: _vars.get(m.group(1), m.group(0)), a))
                 command = ScenarioCommand(line_no=command.line_no, action=command.action, args=expanded)
+            # base URL 치환
+            if _base_url and any(_default_base_url in a for a in command.args):
+                rewritten = [a.replace(_default_base_url, _base_url) for a in command.args]
+                command = ScenarioCommand(line_no=command.line_no, action=command.action, args=rewritten)
             validate_command(command)
 
             # EXPECT_FAIL 미소비 체크: 타겟 스텝이 실패 없이 성공하면 EXPECT_FAIL 위반
@@ -3170,6 +3179,12 @@ def parse_args() -> argparse.Namespace:
         metavar="KEY=VALUE",
         help="Set scenario variable (e.g. --var order_number=12345). Use {{KEY}} in .scn files.",
     )
+    parser.add_argument(
+        "--base-url",
+        default=None,
+        metavar="URL",
+        help="Override base URL (default: https://alpha.zigzag.kr). All scenario URLs are rewritten.",
+    )
     return parser.parse_args()
 
 
@@ -3219,6 +3234,7 @@ def main() -> None:
             keep_alive_interval_sec=keep_alive_interval_sec,
             keep_browser_open=args.keep_browser_open if seq == total else False,
             scenario_vars=scenario_vars or None,
+            base_url=args.base_url,
         )
         if exit_code != 0:
             overall_exit_code = 1
