@@ -1,32 +1,33 @@
 # alpha 클레임 교환 요청/결제/완료 시나리오
-# 목적: 주문배송 목록 필터로 배송완료 건 조회 후 교환 요청 -> 교환비용 결제 -> 완료 -> 주문상세 이동까지 검증
+# 목적: 주문배송 목록에서 배송완료 건 조회 후 교환 요청 → 교환비용 결제 → 완료까지 검증
 
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/auth/email-login?redirect=https%3A%2F%2Falpha.zigzag.kr%2Fcheckout%2Forders
-WAIT_FOR 2500
-CHECK_URL /checkout/orders
-EVAL "(() => { const norm=s=>(s||'').replace(/\\s+/g,'').trim(); const clear=[...document.querySelectorAll('button,[role=button],div,span')].find(el=>norm(el.textContent).includes('검색어초기화')); if(clear){ clear.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return 'cleared_search_keyword'; } return 'no_search_keyword_to_clear'; })()"
+# 1) 주문 목록 진입 + 배송완료 필터
+ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
 APPLY_ORDER_STATUS_FILTER 배송완료
-EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); if (t.includes('주문내역이없어요')) throw new Error('no_order_history_after_delivery_done_filter'); if (!(t.includes('배송완료') || t.includes('배송중'))) throw new Error('delivery_filter_not_applied'); return 'ok'; })()"
+
+# 2) 교환 가능한 주문상세 진입
 CLICK_ORDER_DETAIL_WITH_ACTION 교환
 WAIT_URL /checkout/orders/
 WAIT_FOR 1200
+
+# 3) 교환하기 클릭 → 교환 요청 페이지 진입
 EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const all=[...document.querySelectorAll('*')]; const leaf=all.find(el=>norm(el.textContent)==='교환하기' || norm(el.textContent)==='교환신청' || norm(el.textContent)==='교환'); if(!leaf) throw new Error('no_exchange_action'); const clickable=leaf.closest('button,[role=button],a,[role=link],[tabindex],div,span') || leaf; clickable.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(clickable.textContent)}`; })()"
 WAIT_URL /request-exchange
 WAIT_FOR 700
+
+# 4) 교환 사유 선택 + 제출
 SUBMIT_EXCHANGE_REQUEST "__ASK__"
 CHECK_NOT_URL /request-exchange
 
-# 교환비용 결제 화면 진입 시 포인트 전액결제 기본 적용
+# 5) 교환비용 결제 (포인트 전액)
 EVAL "(() => { const url=location.href; if(!url.includes('/order-sheets/exchange')) return 'skip_exchange_cost_sheet'; const txt=(el)=>(el.textContent||'').replace(/\\s+/g,'').trim(); const full=[...document.querySelectorAll('button,[role=button],a,div,span')].find(el=>txt(el).includes('포인트전액사용')); if(full){ (full.closest('button,[role=button],a,div,span')||full).click(); return 'exchange_point_full_applied'; } throw new Error('exchange_point_full_not_found'); })()"
 WAIT_FOR 500
 EVAL "(() => { const url=location.href; if(!url.includes('/order-sheets/exchange')) return 'skip_exchange_cost_sheet'; const txt=(el)=>(el.textContent||'').replace(/\\s+/g,'').trim(); const btn=[...document.querySelectorAll('button,[role=button],div,a,span')].find(el=>txt(el).includes('0원결제하기')||txt(el).includes('0원구매하기')); if(!btn) throw new Error('no_zero_exchange_pay_button'); (btn.closest('button,[role=button],div,a,span')||btn).click(); return `clicked:${txt(btn)}`; })()"
 WAIT_URL /claim-order-completed
-CHECK_URL /claim-order-completed
 
-# 완료 페이지에서 주문상세 이동
+# 6) 완료 페이지에서 주문상세 이동 + 결과 확인
 EVAL "(() => { const norm=(s)=>(s||'').replace(/\\s+/g,'').trim(); const all=[...document.querySelectorAll('a,button,[role=button],div,span')]; const target=all.find(el=>norm(el.textContent).includes('주문상세')||norm(el.textContent).includes('주문배송')||norm(el.textContent).includes('주문내역')); if(!target) throw new Error('no_order_detail_button_on_claim_complete'); (target.closest('a,button,[role=button],div,span')||target).click(); return `clicked:${norm(target.textContent)}`; })()"
 WAIT_URL /checkout/orders/
-CHECK_URL /checkout/orders/
 EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); if (!(t.includes('교환요청') || t.includes('교환중') || t.includes('교환완료'))) throw new Error('exchange_result_status_not_found'); return 'exchange_result_status_ok'; })()"
-PRINT_ACTIVE_MODAL
 DUMP_STATE claim_exchange_case

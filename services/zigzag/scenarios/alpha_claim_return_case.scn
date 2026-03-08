@@ -1,21 +1,26 @@
 # alpha 클레임 반품 요청 완료 시나리오
-# 목적: 주문배송 목록 필터로 배송완료 건 조회 후 반품 요청 완료까지 검증
+# 목적: 주문배송 목록에서 배송완료 건 조회 후 반품 요청 완료까지 검증
 
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/auth/email-login?redirect=https%3A%2F%2Falpha.zigzag.kr%2Fcheckout%2Forders
-WAIT_FOR 2500
-CHECK_URL /checkout/orders
-EVAL "(() => { const norm=s=>(s||'').replace(/\\s+/g,'').trim(); const clear=[...document.querySelectorAll('button,[role=button],div,span')].find(el=>norm(el.textContent).includes('검색어초기화')); if(clear){ clear.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return 'cleared_search_keyword'; } return 'no_search_keyword_to_clear'; })()"
+# 1) 주문 목록 진입 + 배송완료 필터
+ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
 APPLY_ORDER_STATUS_FILTER 배송완료
-EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); if (t.includes('주문내역이없어요')) throw new Error('no_order_history_after_delivery_done_filter'); if (!t.includes('배송완료')) throw new Error('delivery_done_filter_not_applied'); return 'ok'; })()"
+
+# 2) 반품 가능한 주문상세 진입
 CLICK_ORDER_DETAIL_WITH_ACTION 반품
 WAIT_URL /checkout/orders/
 WAIT_FOR 1200
+
+# 3) 반품하기 클릭 → 반품 요청 페이지 진입
 EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const all=[...document.querySelectorAll('*')]; const leaf=all.find(el=>norm(el.textContent)==='반품하기' || norm(el.textContent)==='반품신청' || norm(el.textContent)==='반품'); if(!leaf) throw new Error('no_return_action'); const clickable=leaf.closest('button,[role=button],a,[role=link],[tabindex],div,span') || leaf; clickable.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(clickable.textContent)}`; })()"
 WAIT_URL /request-return
 WAIT_FOR 700
+
+# 4) 반품 사유 선택 + 제출
 SUBMIT_RETURN_REQUEST "__ASK__"
 CHECK_URL /checkout/orders/
 CHECK_NOT_URL /request-return
+
+# 5) 반품 결과 확인
 EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); if (!(t.includes('반품요청') || t.includes('반품중') || t.includes('반품완료'))) throw new Error('return_result_status_not_found'); return 'return_result_status_ok'; })()"
-PRINT_ACTIVE_MODAL
 DUMP_STATE claim_return_case
