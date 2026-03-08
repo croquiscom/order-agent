@@ -1,4 +1,4 @@
-# alpha 결제 차단 모달 시나리오
+# 결제 차단 모달 캡처
 # 목적: 결제 시도 후 활성 모달/차단 메시지 캡처
 
 ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
@@ -19,4 +19,4 @@ WAIT_FOR 300
 EVAL "(() => { const txt = (el) => (el.textContent || '').replace(/\\s+/g,'').trim(); const btn = [...document.querySelectorAll('button,[role=button]')].find(el => txt(el).includes('결제하기') || txt(el).includes('구매하기')); if (!btn) throw new Error('no_pay_button'); btn.click(); return txt(btn); })()"
 WAIT_FOR 1200
 PRINT_ACTIVE_MODAL
-DUMP_STATE blocking_modal_case_after_pay_click
+DUMP_STATE payment_blocked_modal_after_pay_click

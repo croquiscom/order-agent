@@ -14,42 +14,66 @@
 - 장바구니: `https://alpha.zigzag.kr/checkout/cart?from=pdp`
 
 ## 자동화 시나리오 파일
-- PDP 직행 주문 생성 완료(100136725): `services/zigzag/scenarios/alpha_pdp_direct_order_complete_100136725.scn`
-- 장바구니 담기 후 결제 완료(100136725): `services/zigzag/scenarios/alpha_cart_add_and_checkout_100136725.scn`
-- 주문 생성(바로구매): `services/zigzag/scenarios/alpha_order_creation_100136725.scn`
-- 주문 생성(장바구니): `services/zigzag/scenarios/alpha_order_creation_100136725_cart.scn`
+- PDP 직행 주문 생성 완료 — 스토어배송(100136725): `services/zigzag/scenarios/alpha_direct_buy_complete_normal.scn`
+- PDP 직행 주문 생성 완료 — 직진배송(100100014): `services/zigzag/scenarios/alpha_direct_buy_complete_zigzin.scn`
+- 장바구니 담기 후 결제 완료 — 스토어배송(100136725): `services/zigzag/scenarios/alpha_cart_checkout_complete_normal.scn`
+- 장바구니 담기 후 결제 완료 — 직진배송(100100014): `services/zigzag/scenarios/alpha_cart_checkout_complete_zigzin.scn`
+- 주문 생성(바로구매) — 스토어배송: `services/zigzag/scenarios/alpha_direct_buy_order_normal.scn`
+- 주문 생성(바로구매) — 직진배송: `services/zigzag/scenarios/alpha_direct_buy_order_zigzin.scn`
+- 주문 생성(장바구니) — 스토어배송: `services/zigzag/scenarios/alpha_cart_order_normal.scn`
+- 주문 생성(장바구니) — 직진배송: `services/zigzag/scenarios/alpha_cart_order_zigzin.scn`
 - 재로그인 복구: `services/zigzag/scenarios/alpha_relogin_recovery.scn`
-- 결제 차단 모달 증적: `services/zigzag/scenarios/alpha_blocking_modal_case.scn`
-- 포인트 부족 증적: `services/zigzag/scenarios/alpha_insufficient_points_case.scn`
-- 장바구니 다건 타겟 단건 주문: `services/zigzag/scenarios/alpha_cart_multi_item_target_only.scn`
-- 결제요청 고착 분류: `services/zigzag/scenarios/alpha_payment_request_stuck_case.scn`
-- 취소 요청 완료: `services/zigzag/scenarios/alpha_claim_cancel_case.scn`
-- 반품 요청 완료(배송완료 필터): `services/zigzag/scenarios/alpha_claim_return_case.scn`
-- 교환 요청 완료(배송완료 필터): `services/zigzag/scenarios/alpha_claim_exchange_case.scn`
+- 결제 차단 모달 증적: `services/zigzag/scenarios/alpha_payment_blocked_modal.scn`
+- 포인트 부족 증적: `services/zigzag/scenarios/alpha_insufficient_points.scn`
+- 장바구니 다건 타겟 단건 주문: `services/zigzag/scenarios/alpha_cart_multi_item_single_order.scn`
+- 결제요청 고착 분류: `services/zigzag/scenarios/alpha_payment_stuck.scn`
+- 취소 요청 완료: `services/zigzag/scenarios/alpha_claim_cancel.scn`
+- 반품 요청 완료(배송완료 필터): `services/zigzag/scenarios/alpha_claim_return.scn`
+- 교환 요청 완료(배송완료 필터): `services/zigzag/scenarios/alpha_claim_exchange.scn`
   - 범위: 교환 요청 -> 교환비용결제(포인트 전액/0원 결제) -> 교환완료 -> 주문상세 이동
-- 클레임 진입 3종(취소/반품/교환): `services/zigzag/scenarios/alpha_claim_entry_case.scn`
+- 클레임 진입 3종(취소/반품/교환): `services/zigzag/scenarios/alpha_claim_entry_check.scn`
 - 전체 이력 통합 회귀: `services/zigzag/scenarios/alpha_full_history_regression.scn`
 
 ## 실행 방법
 ```bash
-# 1) PDP 직행 주문 생성 완료(100136725)
+# 1) PDP 직행 주문 생성 완료 — 스토어배송(100136725)
 python3 services/zigzag/scripts/execute_scenario.py \
-  services/zigzag/scenarios/alpha_pdp_direct_order_complete_100136725.scn \
+  services/zigzag/scenarios/alpha_direct_buy_complete_normal.scn \
   --continue-on-error
 
-# 2) 장바구니 담기 후 결제 완료
+# 1b) PDP 직행 주문 생성 완료 — 직진배송(100100014)
 python3 services/zigzag/scripts/execute_scenario.py \
-  services/zigzag/scenarios/alpha_cart_add_and_checkout_100136725.scn \
+  services/zigzag/scenarios/alpha_direct_buy_complete_zigzin.scn \
   --continue-on-error
 
-# 3) 주문 생성(바로구매)
+# 2) 장바구니 담기 후 결제 완료 — 스토어배송
 python3 services/zigzag/scripts/execute_scenario.py \
-  services/zigzag/scenarios/alpha_order_creation_100136725.scn \
+  services/zigzag/scenarios/alpha_cart_checkout_complete_normal.scn \
   --continue-on-error
 
-# 4) 주문 생성(장바구니)
+# 2b) 장바구니 담기 후 결제 완료 — 직진배송
 python3 services/zigzag/scripts/execute_scenario.py \
-  services/zigzag/scenarios/alpha_order_creation_100136725_cart.scn \
+  services/zigzag/scenarios/alpha_cart_checkout_complete_zigzin.scn \
+  --continue-on-error
+
+# 3) 주문 생성(바로구매) — 스토어배송
+python3 services/zigzag/scripts/execute_scenario.py \
+  services/zigzag/scenarios/alpha_direct_buy_order_normal.scn \
+  --continue-on-error
+
+# 3b) 주문 생성(바로구매) — 직진배송
+python3 services/zigzag/scripts/execute_scenario.py \
+  services/zigzag/scenarios/alpha_direct_buy_order_zigzin.scn \
+  --continue-on-error
+
+# 4) 주문 생성(장바구니) — 스토어배송
+python3 services/zigzag/scripts/execute_scenario.py \
+  services/zigzag/scenarios/alpha_cart_order_normal.scn \
+  --continue-on-error
+
+# 4b) 주문 생성(장바구니) — 직진배송
+python3 services/zigzag/scripts/execute_scenario.py \
+  services/zigzag/scenarios/alpha_cart_order_zigzin.scn \
   --continue-on-error
 
 # 5) 전체 진행 이력 통합 회귀
@@ -59,7 +83,7 @@ python3 services/zigzag/scripts/execute_scenario.py \
 
 # 6) 취소 요청 완료
 python3 services/zigzag/scripts/execute_scenario.py \
-  services/zigzag/scenarios/alpha_claim_cancel_case.scn \
+  services/zigzag/scenarios/alpha_claim_cancel.scn \
   --continue-on-error
 ```
 
@@ -78,7 +102,7 @@ python3 services/zigzag/scripts/execute_scenario.py \
 - `포인트 전액사용`은 텍스트 클릭 대신 snapshot ref 기반(`CLICK_SNAPSHOT_TEXT`)으로 정확히 클릭하도록 보강함.
 - `0원 구매하기`가 보이지 않으면 결제 단계를 실패 처리하도록 게이트를 추가함.
 - 장바구니 시나리오는 기존 장바구니는 유지하고, 타겟 상품만 선택해 주문하도록 보강함.
-- 2026-03-06 실브라우저 기준 `alpha_cart_add_and_checkout_100136725.scn` 주문완료 확인:
+- 2026-03-06 실브라우저 기준 `alpha_cart_checkout_complete_normal.scn` 주문완료 확인:
   `https://alpha.zigzag.kr/checkout/order-completed/138266936863171343`
 
 ## 실테스트 기반 개선 반영사항

@@ -1,4 +1,4 @@
-# alpha 결제요청 고착 케이스 시나리오
+# 결제 요청 후 고착 여부 판정
 # 목적: 결제 클릭 후 payment request URL 고착 여부를 CHECK_PAYMENT_RESULT로 판정
 
 ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/catalog/products/100136725

@@ -1,4 +1,4 @@
-# alpha 장바구니 다건 상태에서 타겟 단건 주문 시나리오
+# 장바구니 다건 중 단건만 주문
 # 목적: 기존 담김 상품이 여러 개인 상태에서도 타겟 상품만 선택해 주문서 진입
 
 ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
@@ -18,4 +18,4 @@ CLICK_SNAPSHOT_TEXT "구매하기"
 WAIT_URL /checkout/order-sheets/
 CHECK_URL /checkout/order-sheets/
 CHECK_NEW_ORDER_SHEET
-DUMP_STATE cart_multi_item_target_only
+DUMP_STATE cart_multi_item_single_order

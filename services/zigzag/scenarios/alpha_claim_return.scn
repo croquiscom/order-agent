@@ -1,4 +1,4 @@
-# alpha 클레임 반품 요청 완료 시나리오
+# 반품 클레임 요청 + 비용 결제 완료
 # 목적: 주문배송 목록에서 배송완료 건 조회 후 반품 요청 완료까지 검증
 
 # 1) 주문 목록 진입 + 배송완료 필터 (필터 초기화를 위해 NAVIGATE로 새로고침)
@@ -19,9 +19,19 @@ WAIT_FOR 700
 
 # 4) 반품 사유 선택 + 제출
 SUBMIT_RETURN_REQUEST "__ASK__"
-CHECK_URL /checkout/orders/
 CHECK_NOT_URL /request-return
 
-# 5) 반품 결과 확인
+# 5) 반품비용 결제 (포인트 전액)
+CHECK_URL /order-sheets/return
+CLICK text=전액사용
+WAIT_FOR 500
+CLICK "text=0원 결제하기"
+WAIT_URL /claim-order-completed
+
+# 6) 완료 페이지에서 주문상세 이동 + 결과 확인
+CLICK "text=주문 상세보기"
+WAIT_URL /checkout/orders/
+
+# 7) 반품 결과 확인
 EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); if (!(t.includes('반품요청') || t.includes('반품중') || t.includes('반품완료'))) throw new Error('return_result_status_not_found'); return 'return_result_status_ok'; })()"
-DUMP_STATE claim_return_case
+DUMP_STATE claim_return

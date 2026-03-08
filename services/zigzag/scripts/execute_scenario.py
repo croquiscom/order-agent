@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import re
@@ -22,7 +23,7 @@ if str(REPO_ROOT) not in sys.path:
 from core.logger import setup_logger
 from core.runner import AgentBrowserError, agent_browser
 
-DEFAULT_SCENARIO = Path(__file__).resolve().parents[1] / "scenarios" / "alpha_pdp_direct_order_complete_100136725.scn"
+DEFAULT_SCENARIO = Path(__file__).resolve().parents[1] / "scenarios" / "alpha_direct_buy_complete_normal.scn"
 ALLOWED_ACTIONS = {
     "NAVIGATE",
     "CLICK",
@@ -264,12 +265,59 @@ def _page_has_already_logged_in_notice() -> bool:
     return "true" in (out.stdout or "").lower()
 
 
+# ---------------------------------------------------------------------------
+# Self-Healing: fuzzy text matching for UI change resilience
+# ---------------------------------------------------------------------------
+_self_heal_log: list[dict[str, str]] = []  # [{step, old_text, new_text, similarity}]
+
+
+def _normalize_text(s: str) -> str:
+    """Remove all whitespace for comparison."""
+    return re.sub(r"\s+", "", s)
+
+
+def _fuzzy_find_in_snapshot(
+    target_text: str, snapshot_out: str, threshold: float = 0.55
+) -> list[tuple[str, str, str, float]]:
+    """Find snapshot elements by fuzzy text matching.
+
+    Returns list of (label, ref, role, similarity) sorted by similarity desc.
+    """
+    norm_target = _normalize_text(target_text)
+    results: list[tuple[str, str, str, float]] = []
+    for line in snapshot_out.splitlines():
+        m = SNAPSHOT_NODE_PATTERN.match(line.strip())
+        if not m:
+            continue
+        role = (m.group(1) or "").strip()
+        label = (m.group(2) or "").strip()
+        ref = (m.group(3) or "").strip()
+        if not label:
+            continue
+        norm_label = _normalize_text(label)
+        # Strategy 1: exact substring (score 1.0)
+        if target_text in label:
+            results.append((label, ref, role, 1.0))
+            continue
+        # Strategy 2: whitespace-normalized substring
+        if norm_target in norm_label:
+            results.append((label, ref, role, 0.95))
+            continue
+        # Strategy 3: difflib similarity
+        ratio = difflib.SequenceMatcher(None, norm_target, norm_label).ratio()
+        if ratio >= threshold:
+            results.append((label, ref, role, ratio))
+    results.sort(key=lambda x: x[3], reverse=True)
+    return results
+
+
 def _click_by_snapshot_text(target_text: str, retry_on_overlay: bool = True) -> tuple[str, str]:
     import logging as _logging
     _log = _logging.getLogger("order-agent-exec")
     snapshot_out = agent_browser("snapshot", "-i", check=True).stdout or ""
     # Use NODE_PATTERN to capture role (checkbox detection)
     candidates: list[tuple[str, str, str]] = []  # (label, ref, role)
+    fuzzy_healed = False
     for line in snapshot_out.splitlines():
         m = SNAPSHOT_NODE_PATTERN.match(line.strip())
         if not m:
@@ -278,7 +326,23 @@ def _click_by_snapshot_text(target_text: str, retry_on_overlay: bool = True) -> 
         if label and target_text in label:
             candidates.append((label, ref, role))
     if not candidates:
-        raise RuntimeError(f"CLICK_SNAPSHOT_TEXT failed: no match for '{target_text}'")
+        # Self-Heal: try fuzzy matching before giving up
+        fuzzy_results = _fuzzy_find_in_snapshot(target_text, snapshot_out)
+        if fuzzy_results:
+            best_label, best_ref, best_role, best_sim = fuzzy_results[0]
+            _log.warning(
+                "SELF-HEAL: '%s' not found, using fuzzy match '%s' (similarity=%.0f%%)",
+                target_text, best_label, best_sim * 100,
+            )
+            _self_heal_log.append({
+                "old_text": target_text,
+                "new_text": best_label,
+                "similarity": f"{best_sim:.0%}",
+            })
+            candidates.append((best_label, best_ref, best_role))
+            fuzzy_healed = True
+        else:
+            raise RuntimeError(f"CLICK_SNAPSHOT_TEXT failed: no match for '{target_text}'")
     exact = [c for c in candidates if c[0].strip() == target_text]
     label, ref, role = exact[0] if exact else candidates[0]
     cmd = "check" if role == "checkbox" else "click"
@@ -299,6 +363,13 @@ def _click_by_snapshot_text(target_text: str, retry_on_overlay: bool = True) -> 
                 r2_role, l2, r2 = (m2.group(1) or "").strip(), (m2.group(2) or "").strip(), (m2.group(3) or "").strip()
                 if l2 and target_text in l2:
                     candidates2.append((l2, r2, r2_role))
+            if not candidates2:
+                # Self-Heal on overlay retry too
+                fuzzy2 = _fuzzy_find_in_snapshot(target_text, snapshot_out2)
+                if fuzzy2:
+                    b_label, b_ref, b_role, b_sim = fuzzy2[0]
+                    _log.warning("SELF-HEAL (overlay retry): fuzzy match '%s' (%.0f%%)", b_label, b_sim * 100)
+                    candidates2.append((b_label, b_ref, b_role))
             if candidates2:
                 exact2 = [c for c in candidates2 if c[0].strip() == target_text]
                 label, ref, role = exact2[0] if exact2 else candidates2[0]
@@ -1177,10 +1248,12 @@ def _submit_return_request(reason_text: str) -> str:
     submit_js = (
         "(function(){"
         "const norm=s=>(s||'').replace(/\\s+/g,'').trim();"
-        "const btn=[...document.querySelectorAll('button,[role=\"button\"],div')].find(el=>norm(el.textContent)==='반품요청하기'||norm(el.textContent)==='반품요청');"
+        "const labels=['반품요청하기','반품요청','다음단계로이동'];"
+        "const btn=[...document.querySelectorAll('button,[role=\"button\"],div')].find(el=>labels.includes(norm(el.textContent)));"
         "if(!btn) throw new Error('return_request_button_not_found');"
-        "btn.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}));"
-        "return 'return_request_clicked';"
+        "try{btn.scrollIntoView({block:'center'});}catch(e){}"
+        "['pointerdown','mousedown','mouseup','click'].forEach(tp=>btn.dispatchEvent(new MouseEvent(tp,{bubbles:true,cancelable:true,view:window})));"
+        "return 'return_submit_clicked:'+norm(btn.textContent);"
         "})()"
     )
     max_submit_attempts = 3
@@ -2273,6 +2346,14 @@ def _print_report(
             else:
                 out.write(f"    L{r.line_no} {r.summary[:30]:<30}  {msg}\n")
 
+    # Self-Heal 요약
+    if _self_heal_log:
+        out.write(f"{'─'*70}\n")
+        out.write("  Self-Heal (UI 변경 자동 복구):\n")
+        for entry in _self_heal_log:
+            out.write(f"    '{entry['old_text']}' → '{entry['new_text']}' ({entry['similarity']})\n")
+        out.write("  ⚠ 시나리오 파일의 텍스트를 위 매칭 결과로 업데이트하세요.\n")
+
     out.write(f"{'─'*70}\n\n")
 
 
@@ -2358,8 +2439,10 @@ def run_scenario(
     keep_browser_alive: bool = False,
     keep_alive_interval_sec: int = 8,
     keep_browser_open: bool = False,
+    scenario_vars: dict[str, str] | None = None,
 ) -> int:
     logger = setup_logger("order-agent-exec")
+    _self_heal_log.clear()
 
     if not _preflight_check(logger, dry_run=dry_run):
         return 1
@@ -2400,8 +2483,16 @@ def run_scenario(
     expect_fail_target_idx: int = -1  # EXPECT_FAIL이 적용될 스텝 인덱스
     scenario_start = time.time()
     try:
+        _vars = scenario_vars or {}
         for idx, command in enumerate(commands, 1):
             step_start_times.append(time.time())
+            # {{var}} 치환
+            if _vars and any("{{" in a for a in command.args):
+                import re as _re
+                expanded = []
+                for a in command.args:
+                    expanded.append(_re.sub(r"\{\{(\w+)\}\}", lambda m: _vars.get(m.group(1), m.group(0)), a))
+                command = ScenarioCommand(line_no=command.line_no, action=command.action, args=expanded)
             validate_command(command)
 
             # EXPECT_FAIL 미소비 체크: 타겟 스텝이 실패 없이 성공하면 EXPECT_FAIL 위반
@@ -3072,6 +3163,13 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Stop executing remaining scenarios if one fails (multi-scenario mode)",
     )
+    parser.add_argument(
+        "--var",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Set scenario variable (e.g. --var order_number=12345). Use {{KEY}} in .scn files.",
+    )
     return parser.parse_args()
 
 
@@ -3093,6 +3191,15 @@ def main() -> None:
     keep_alive_interval_sec = max(2, args.keep_alive_interval_sec)
     keep_browser_alive = args.keep_browser_alive or args.keep_browser_open
 
+    # --var KEY=VALUE 파싱
+    scenario_vars: dict[str, str] = {}
+    for var_expr in args.var:
+        if "=" not in var_expr:
+            print(f"[ERROR] Invalid --var format: {var_expr!r} (expected KEY=VALUE)", file=sys.stderr)
+            raise SystemExit(2)
+        k, v = var_expr.split("=", 1)
+        scenario_vars[k.strip()] = v.strip()
+
     total = len(scenario_paths)
     overall_exit_code = 0
     for seq, scenario_path in enumerate(scenario_paths, 1):
@@ -3111,6 +3218,7 @@ def main() -> None:
             keep_browser_alive=keep_browser_alive,
             keep_alive_interval_sec=keep_alive_interval_sec,
             keep_browser_open=args.keep_browser_open if seq == total else False,
+            scenario_vars=scenario_vars or None,
         )
         if exit_code != 0:
             overall_exit_code = 1

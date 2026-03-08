@@ -74,7 +74,7 @@ def test_parse_real_scenario_file():
         / "services"
         / "zigzag"
         / "scenarios"
-        / "alpha_pdp_direct_order_complete_100136725.scn"
+        / "alpha_direct_buy_complete_normal.scn"
     )
     commands = parse_scenario(scn_path)
 

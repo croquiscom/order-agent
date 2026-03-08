@@ -1,0 +1,26 @@
+# 취소 클레임 요청 완료
+# 목적: 주문배송 목록에서 결제완료/주문확인중 상태 주문을 탐색해 취소 요청 완료까지 검증
+
+# 1) 주문 목록 진입 (필터 초기화를 위해 NAVIGATE로 새로고침)
+ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
+
+# 2) 취소 가능한 주문상세 진입
+CLICK_ORDER_DETAIL_WITH_ACTION 취소
+WAIT_URL /checkout/orders/
+WAIT_FOR 1200
+
+# 3) 취소하기 클릭 → 취소 요청 페이지 진입
+EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const all=[...document.querySelectorAll('*')]; const leaf=all.find(el=>norm(el.textContent)==='취소하기'); if(!leaf) throw new Error('no_cancel_action'); const clickable=leaf.closest('button,[role=button],a,[role=link],[tabindex],div,span') || leaf; clickable.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(clickable.textContent)}`; })()"
+WAIT_URL /request-cancel
+WAIT_FOR 700
+
+# 4) 취소 사유 선택 + 제출
+SUBMIT_CANCEL_REQUEST "__ASK__"
+CHECK_URL /checkout/orders/
+CHECK_NOT_URL /request-cancel
+
+# 5) 취소 결과 확인
+EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); if (!(t.includes('취소완료') || t.includes('취소요청') || t.includes('취소중'))) throw new Error('cancel_result_status_not_found'); return 'cancel_result_status_ok'; })()"
+DUMP_STATE claim_cancel

@@ -34,10 +34,10 @@
    - `all`: 전체 시나리오 실행
 
    키워드 매핑:
-   - `order` → `alpha_order_creation_100136725.scn`
-   - `cancel` → `alpha_claim_cancel_case.scn`
-   - `return` → `alpha_claim_return_case.scn`
-   - `exchange` → `alpha_claim_exchange_case.scn`
+   - `order` → `alpha_direct_buy_order_normal.scn`
+   - `cancel` → `alpha_claim_cancel.scn`
+   - `return` → `alpha_claim_return.scn`
+   - `exchange` → `alpha_claim_exchange.scn`
 
 4. 주요 옵션:
    - `--dry-run`: 실제 브라우저 없이 파싱/검증만
@@ -53,10 +53,10 @@
 
 ## 예시
 - `/run-scenario` — 기본 시나리오
-- `/run-scenario alpha_claim_cancel_case.scn` — 취소 클레임 시나리오
-- `/run-scenario --dry-run alpha_order_creation_100136725.scn` — 드라이런
+- `/run-scenario alpha_claim_cancel.scn` — 취소 클레임 시나리오
+- `/run-scenario --dry-run alpha_direct_buy_order_normal.scn` — 드라이런
 - `/run-scenario --continue-on-error alpha_full_history_regression.scn` — 회귀 테스트
-- `/run-scenario alpha_order_creation_100136725.scn alpha_claim_cancel_case.scn` — 주문 → 취소 연결
+- `/run-scenario alpha_direct_buy_order_normal.scn alpha_claim_cancel.scn` — 주문 → 취소 연결
 - `/run-scenario order+cancel` — 주문 → 취소 (키워드)
 - `/run-scenario order+return --keep-browser-open` — 주문 → 반품, 브라우저 유지
 - `/run-scenario --dry-run all-claims` — 전체 클레임 드라이런

@@ -65,10 +65,10 @@ python3 services/zigzag/scripts/execute_scenario.py
 # 특정 시나리오 파일 지정
 python3 services/zigzag/scripts/execute_scenario.py path/to/custom.scn
 
-# alpha PDP 직행 주문 생성 완료(상품: 100136725)
-python3 services/zigzag/scripts/execute_scenario.py services/zigzag/scenarios/alpha_pdp_direct_order_complete_100136725.scn --continue-on-error
+# alpha PDP 직행 주문 생성 완료 — 스토어배송(상품: 100136725)
+python3 services/zigzag/scripts/execute_scenario.py services/zigzag/scenarios/alpha_direct_buy_complete_normal.scn --continue-on-error
 
-# 오리지널 Chrome GUI로 실행(기본: alpha_pdp_direct_order_complete_100136725.scn)
+# 오리지널 Chrome GUI로 실행(기본: alpha_direct_buy_complete_normal.scn)
 ./scripts/run_scenario_chrome.sh
 
 # 오리지널 Chrome GUI로 특정 시나리오 실행

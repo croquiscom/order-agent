@@ -1,5 +1,5 @@
-# alpha PDP 직행 주문 생성 완료 시나리오 (상품: 100136725)
-# 목표: 상품페이지 -> 주문서(from=product) -> 포인트 전액 -> 결제 확인 -> 주문내역 확인
+# 장바구니 담기 → 구매 완료 — 스토어배송
+# 목표: 상품페이지 -> 장바구니 담기 -> 장바구니 구매 -> 포인트 전액 -> 주문완료 확인
 
 ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
 WAIT_FOR 1200
@@ -7,31 +7,36 @@ WAIT_FOR 1200
 NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
 WAIT_FOR 2000
 
-# PDP 하단 구매 레이어에서 바로구매까지 순차 클릭
-EVAL "(async () => { const btn = (name) => [...document.querySelectorAll('button')].find(b => (b.textContent || '').trim() === name); const buy = btn('구매하기'); if (!buy) return 'no_buy_button'; buy.click(); await new Promise(r => setTimeout(r, 400)); const direct = btn('바로구매'); if (!direct) return 'no_direct_button'; direct.click(); return 'clicked_direct'; })()"
+# PDP 하단 구매 레이어에서 장바구니 담기
+EVAL "(async () => { const text = (el) => (el && el.textContent ? el.textContent : '').replace(/\\s+/g,'').trim(); const btn = (name) => [...document.querySelectorAll('button,[role=button]')].find(b => text(b) === name); const buy = btn('구매하기'); if (!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r => setTimeout(r, 500)); const cart = btn('장바구니'); if (!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart'; })()"
+WAIT_FOR 1500
 
+# 장바구니에서 방금 담은 상품 구매
+NAVIGATE https://alpha.zigzag.kr/checkout/cart?from=pdp
+WAIT_FOR 1800
+SELECT_CART_ITEM_BY_TEXT "마이스토어 테스트 상세페이지로 이동"
+WAIT_FOR 300
+PRESS Escape
+CLICK_SNAPSHOT_TEXT "구매하기"
 WAIT_URL /checkout/order-sheets/
 CHECK_URL /checkout/order-sheets/
 CHECK_NEW_ORDER_SHEET
-CHECK_URL from=product
 
+# 주문서: 포인트 전액 결제
 WAIT_FOR "text=전액사용"
 CHECK "text=전액사용"
 CLICK_SNAPSHOT_TEXT "포인트 전액사용"
 WAIT_FOR 1200
 CHECK "text=0원"
-
-# 동의 체크박스 강제 적용(문구 매칭 checkbox 우선)
 EVAL "(() => { const cbs = [...document.querySelectorAll('input[type=checkbox]')]; let cb = cbs.find(el => (((el.closest('label,section,div,article') || document.body).textContent) || '').includes('주문내용 확인 및 결제 동의')); if (!cb) cb = cbs[cbs.length - 1] || null; if (!cb) return 'no_checkbox'; if (!cb.checked) cb.click(); cb.dispatchEvent(new Event('input', { bubbles: true })); cb.dispatchEvent(new Event('change', { bubbles: true })); return cb.checked ? 'checked' : 'not_checked'; })()"
 WAIT_FOR 400
-
 EVAL "(() => { const txt = (el) => (el.textContent || '').replace(/\\s+/g,'').trim(); const btn = [...document.querySelectorAll('button,[role=button]')].find(el => txt(el).includes('0원구매하기') || txt(el).includes('0원결제하기')); if (!btn) return 'no_zero_pay_button'; btn.click(); return `clicked:${txt(btn)}`; })()"
 WAIT_FOR 1200
 PRINT_ACTIVE_MODAL
-EVAL "(() => { const ok = [...document.querySelectorAll('button,[role=button]')].find(el => (el.textContent || '').includes('확인')); if (!ok) return 'no_confirm_modal'; ok.click(); return 'clicked_confirm'; })()"
-WAIT_FOR 5000
+WAIT_FOR 2000
+PRINT_ACTIVE_MODAL
+DUMP_STATE cart_checkout_after_pay_click_normal
 
-# 진짜 완료 기준: 주문완료 URL 진입
-WAIT_URL /checkout/order-completed/
-CHECK_URL /checkout/order-completed/
-DUMP_STATE pdp_direct_order_complete_100136725
+# 주문완료 확인
+CHECK_PAYMENT_RESULT
+DUMP_STATE cart_checkout_complete_normal

@@ -4,61 +4,77 @@
 
 ## Active Scenarios
 
-1. `services/zigzag/scenarios/alpha_pdp_direct_order_complete_100136725.scn`
-- 목적: PDP 바로구매 경로로 주문완료(`/checkout/order-completed/`)까지 검증
+1. `services/zigzag/scenarios/alpha_direct_buy_complete_normal.scn`
+- 목적: PDP 바로구매 경로로 주문완료(`/checkout/order-completed/`)까지 검증 — 스토어배송(100136725)
 - 핵심: `CLICK_SNAPSHOT_TEXT "포인트 전액사용"` + `0원` 결제 버튼 검증
 
-2. `services/zigzag/scenarios/alpha_order_creation_100136725.scn`
-- 목적: 바로구매 주문 생성 플로우(기준 orderNumber 대비 변경 확인)
+2. `services/zigzag/scenarios/alpha_direct_buy_complete_zigzin.scn`
+- 목적: PDP 바로구매 경로로 주문완료(`/checkout/order-completed/`)까지 검증 — 직진배송(100100014)
+- 핵심: `CLICK_SNAPSHOT_TEXT "포인트 전액사용"` + `0원` 결제 버튼 검증
+
+3. `services/zigzag/scenarios/alpha_direct_buy_order_normal.scn`
+- 목적: 바로구매 주문 생성 플로우(기준 orderNumber 대비 변경 확인) — 스토어배송(100136725)
 - 핵심: 로그인 보장, 신규 order-sheet 검증, 포인트 전액/결제, `CHECK_ORDER_NUMBER_CHANGED`
 
-3. `services/zigzag/scenarios/alpha_order_creation_100136725_cart.scn`
-- 목적: 장바구니 경유 주문 생성 플로우(기준 orderNumber 대비 변경 확인)
+4. `services/zigzag/scenarios/alpha_direct_buy_order_zigzin.scn`
+- 목적: 바로구매 주문 생성 플로우(기준 orderNumber 대비 변경 확인) — 직진배송(100100014)
+- 핵심: 로그인 보장, 신규 order-sheet 검증, 포인트 전액/결제, `CHECK_ORDER_NUMBER_CHANGED`
+
+5. `services/zigzag/scenarios/alpha_cart_order_normal.scn`
+- 목적: 장바구니 경유 주문 생성 플로우(기준 orderNumber 대비 변경 확인) — 스토어배송(100136725)
 - 핵심: cart -> order-sheet 전환, 포인트 전액/결제, `CHECK_ORDER_NUMBER_CHANGED`
 
-4. `services/zigzag/scenarios/alpha_cart_add_and_checkout_100136725.scn`
-- 목적: PDP에서 장바구니 담기 후 장바구니에서 구매 완료까지 검증
+6. `services/zigzag/scenarios/alpha_cart_order_zigzin.scn`
+- 목적: 장바구니 경유 주문 생성 플로우(기준 orderNumber 대비 변경 확인) — 직진배송(100100014)
+- 핵심: cart -> order-sheet 전환, 포인트 전액/결제, `CHECK_ORDER_NUMBER_CHANGED`
+
+7. `services/zigzag/scenarios/alpha_cart_checkout_complete_normal.scn`
+- 목적: PDP에서 장바구니 담기 후 장바구니에서 구매 완료까지 검증 — 스토어배송(100136725)
 - 핵심: 기존 장바구니는 유지하고 타겟 상품만 선택(`SELECT_CART_ITEM_BY_TEXT`), 포인트 전액/결제, `order-completed` 확인
 - 최신 실브라우저 성공: 2026-03-06, `order-completed/138266936863171343`
 
-5. `services/zigzag/scenarios/alpha_full_history_regression.scn`
+8. `services/zigzag/scenarios/alpha_cart_checkout_complete_zigzin.scn`
+- 목적: PDP에서 장바구니 담기 후 장바구니에서 구매 완료까지 검증 — 직진배송(100100014)
+- 핵심: 포인트 전액/결제, `order-completed` 확인 (상품명 관리 불필요로 SELECT_CART_ITEM_BY_TEXT 미사용)
+
+9. `services/zigzag/scenarios/alpha_full_history_regression.scn`
 - 목적: alpha 회귀 및 증적 수집(상태 덤프 중심)
 
-6. `services/zigzag/scenarios/alpha_relogin_recovery.scn`
+10. `services/zigzag/scenarios/alpha_relogin_recovery.scn`
 - 목적: 로그인 세션 만료 시 `ENSURE_LOGIN_ALPHA` 복구 동작 검증
 
-7. `services/zigzag/scenarios/alpha_blocking_modal_case.scn`
+11. `services/zigzag/scenarios/alpha_payment_blocked_modal.scn`
 - 목적: 결제 클릭 이후 차단 모달/알림 메시지 증적 수집
 
-8. `services/zigzag/scenarios/alpha_insufficient_points_case.scn`
+12. `services/zigzag/scenarios/alpha_insufficient_points.scn`
 - 목적: 포인트 전액사용 불가/0원 미충족 상태 증적 수집
 
-9. `services/zigzag/scenarios/alpha_cart_multi_item_target_only.scn`
+13. `services/zigzag/scenarios/alpha_cart_multi_item_single_order.scn`
 - 목적: 장바구니 다건 상태에서 타겟 상품만 선택 후 주문서 전환 검증
 
-10. `services/zigzag/scenarios/alpha_payment_request_stuck_case.scn`
+14. `services/zigzag/scenarios/alpha_payment_stuck.scn`
 - 목적: 결제 후 `PAYMENT_REQUEST_STUCK` 분류 검증 (`CHECK_PAYMENT_RESULT`)
 
-11. `services/zigzag/scenarios/alpha_claim_cancel_case.scn`
+15. `services/zigzag/scenarios/alpha_claim_cancel.scn`
 - 목적: 주문배송 목록 -> 주문상세 -> 취소요청 화면 -> 취소 요청 완료까지 검증
 - 핵심: 필터 모달 없이 주문배송목록에서 `결제완료/주문확인중` 상태 주문을 직접 탐색 + `CLICK_ORDER_DETAIL_WITH_ACTION 취소` + `SUBMIT_CANCEL_REQUEST "옵션을 잘못 선택했어요"` + 취소 상태 텍스트 검증
 
-12. `services/zigzag/scenarios/alpha_claim_entry_case.scn`
+16. `services/zigzag/scenarios/alpha_claim_entry_check.scn`
 - 목적: 주문상세에서 클레임 3종(취소/반품/교환) 진입 가능 여부 및 증적 수집
 
-13. `services/zigzag/scenarios/alpha_claim_return_case.scn`
+17. `services/zigzag/scenarios/alpha_claim_return.scn`
 - 목적: 주문배송 목록의 배송완료 필터 적용 후 반품 요청 완료까지 검증
 - 핵심: `APPLY_ORDER_STATUS_FILTER 배송완료` -> `CLICK_ORDER_DETAIL_WITH_ACTION 반품` -> `SUBMIT_RETURN_REQUEST "사이즈가 맞지 않아요"` -> 반품 상태 텍스트 검증
 
-14. `services/zigzag/scenarios/alpha_claim_exchange_case.scn`
+18. `services/zigzag/scenarios/alpha_claim_exchange.scn`
 - 목적: 주문배송 목록의 배송완료 필터 적용 후 교환 요청 -> 교환비용 결제 -> 완료 -> 주문상세 이동까지 검증
 - 핵심: `APPLY_ORDER_STATUS_FILTER 배송완료` -> `CLICK_ORDER_DETAIL_WITH_ACTION 교환` -> `SUBMIT_EXCHANGE_REQUEST "사이즈가 맞지 않아요"` -> `포인트 전액사용` + `0원 결제하기` -> `/claim-order-completed` -> 주문상세 이동
 - 최신 개선: 다단계 옵션(2단계 이상 포함)에서 `옵션 미선택 문구`가 사라질 때까지 단계별로 `첫 활성 옵션` 반복 선택, `색상/사이즈` 타이틀 클릭 제외, container 네이밍 영역 우선 탐색
 
-15. `services/naver/scenarios/smoke_naver.scn`
+19. `services/naver/scenarios/smoke_naver.scn`
 - 목적: 네이버 검색 스모크
 
-16. `services/naver/scenarios/visible_naver.scn`
+20. `services/naver/scenarios/visible_naver.scn`
 - 목적: 네이버 가시성 대기 포함 스모크
 
 ## 운영 원칙

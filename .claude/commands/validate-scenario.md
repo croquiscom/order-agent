@@ -33,5 +33,5 @@
 
 ## 예시
 - `/validate-scenario` — 전체 시나리오 검증
-- `/validate-scenario alpha_claim_exchange_case.scn` — 특정 파일 검증
+- `/validate-scenario alpha_claim_exchange.scn` — 특정 파일 검증
 - `/validate-scenario services/naver/scenarios/smoke_naver.scn` — 네이버 시나리오 검증

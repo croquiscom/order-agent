@@ -165,7 +165,7 @@ class TestDryRun:
     def test_dry_run_does_not_call_browser(self):
         scn_path = (
             Path(__file__).resolve().parents[1]
-            / "services" / "zigzag" / "scenarios" / "alpha_pdp_direct_order_complete_100136725.scn"
+            / "services" / "zigzag" / "scenarios" / "alpha_direct_buy_complete_normal.scn"
         )
         with patch.dict(os.environ, {"ALLOW_REAL_PAYMENT": "1"}):
             with patch("services.zigzag.scripts.execute_scenario.agent_browser") as mock_browser:

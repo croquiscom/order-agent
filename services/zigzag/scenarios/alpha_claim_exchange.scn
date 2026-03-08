@@ -1,4 +1,4 @@
-# alpha 클레임 교환 요청/결제/완료 시나리오
+# 교환 클레임 요청 + 비용 결제 완료
 # 목적: 주문배송 목록에서 배송완료 건 조회 후 교환 요청 → 교환비용 결제 → 완료까지 검증
 
 # 1) 주문 목록 진입 + 배송완료 필터 (필터 초기화를 위해 NAVIGATE로 새로고침)
@@ -31,4 +31,4 @@ WAIT_URL /claim-order-completed
 EVAL "(() => { const norm=(s)=>(s||'').replace(/\\s+/g,'').trim(); const all=[...document.querySelectorAll('a,button,[role=button],div,span')]; const target=all.find(el=>norm(el.textContent).includes('주문상세')||norm(el.textContent).includes('주문배송')||norm(el.textContent).includes('주문내역')); if(!target) throw new Error('no_order_detail_button_on_claim_complete'); (target.closest('a,button,[role=button],div,span')||target).click(); return `clicked:${norm(target.textContent)}`; })()"
 WAIT_URL /checkout/orders/
 EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); if (!(t.includes('교환요청') || t.includes('교환중') || t.includes('교환완료'))) throw new Error('exchange_result_status_not_found'); return 'exchange_result_status_ok'; })()"
-DUMP_STATE claim_exchange_case
+DUMP_STATE claim_exchange
