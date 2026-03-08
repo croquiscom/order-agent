@@ -2224,18 +2224,26 @@ def _print_report(
     out.write(f"  {mode}Report: {scenario_name}\n")
     out.write(f"{'─'*70}\n")
 
+    skipped = sum(1 for r in results if r.error == "SKIP (not executed)")
     for r in results:
-        mark = "PASS" if r.ok else "FAIL"
+        if r.error == "SKIP (not executed)":
+            mark = "SKIP"
+        elif r.ok:
+            mark = "PASS"
+        else:
+            mark = "FAIL"
         time_str = f"{r.elapsed_ms:7.0f}ms"
         out.write(f"  {mark}  {r.step:>3}/{total}  L{r.line_no:<4}  {time_str}  {r.summary}\n")
-        if not r.ok and r.error:
+        if not r.ok and r.error and r.error != "SKIP (not executed)":
             out.write(f"              ↳ {r.error}\n")
 
     out.write(f"{'─'*70}\n")
     total_sec = total_elapsed_ms / 1000
     out.write(f"  Steps: {passed} passed")
     if failed:
-        out.write(f", {failed} failed")
+        out.write(f", {failed - skipped} failed")
+    if skipped:
+        out.write(f", {skipped} skipped")
     out.write(f" / {total} total")
     out.write(f"  |  Time: {total_sec:.1f}s\n")
 
@@ -2246,7 +2254,7 @@ def _print_report(
             out.write(f"    {label}: {value}\n")
 
     # 실패 요약
-    failed_results = [r for r in results if not r.ok and r.error]
+    failed_results = [r for r in results if not r.ok and r.error and r.error != "SKIP (not executed)"]
     if failed_results:
         out.write(f"{'─'*70}\n")
         out.write("  Failure summary:\n")
@@ -2980,18 +2988,20 @@ def run_scenario(
             pass
 
     step_results: list[_StepResult] = []
+    executed_count = len(step_start_times)
     for i, cmd in enumerate(commands):
         idx = i + 1
-        start = step_start_times[i] if i < len(step_start_times) else scenario_end
-        end = step_start_times[i + 1] if i + 1 < len(step_start_times) else scenario_end
+        skipped = i >= executed_count
+        start = step_start_times[i] if not skipped else scenario_end
+        end = step_start_times[i + 1] if i + 1 < executed_count else scenario_end
         step_results.append(_StepResult(
             step=idx,
             line_no=cmd.line_no,
             action=cmd.action,
             summary=_action_summary(cmd.action, cmd.args),
-            ok=idx not in failed_steps,
-            elapsed_ms=(end - start) * 1000,
-            error=failed_steps.get(idx, ""),
+            ok=False if skipped else (idx not in failed_steps),
+            elapsed_ms=0.0 if skipped else (end - start) * 1000,
+            error="SKIP (not executed)" if skipped else failed_steps.get(idx, ""),
         ))
     _print_report(path.name, step_results, (scenario_end - scenario_start) * 1000, dry_run, scenario_outputs)
 
