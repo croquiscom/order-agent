@@ -1,0 +1,21 @@
+# alpha 장바구니 다건 상태에서 타겟 단건 주문 시나리오
+# 목적: 기존 담김 상품이 여러 개인 상태에서도 타겟 상품만 선택해 주문서 진입
+
+ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 1200
+
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 2000
+EVAL "(async () => { const text = (el) => (el && el.textContent ? el.textContent : '').replace(/\\s+/g,'').trim(); const btn = (name) => [...document.querySelectorAll('button,[role=button]')].find(b => text(b) === name); const buy = btn('구매하기'); if (!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r => setTimeout(r, 500)); const cart = btn('장바구니'); if (!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart'; })()"
+WAIT_FOR 1200
+
+NAVIGATE https://alpha.zigzag.kr/checkout/cart?from=pdp
+WAIT_FOR 1800
+SELECT_CART_ITEM_BY_TEXT "마이스토어 테스트 상세페이지로 이동"
+WAIT_FOR 300
+PRESS Escape
+CLICK_SNAPSHOT_TEXT "구매하기"
+WAIT_URL /checkout/order-sheets/
+CHECK_URL /checkout/order-sheets/
+CHECK_NEW_ORDER_SHEET
+DUMP_STATE cart_multi_item_target_only

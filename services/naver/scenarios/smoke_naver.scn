@@ -1,0 +1,6 @@
+NAVIGATE https://www.naver.com
+WAIT_FOR #query
+FILL #query "네이버 쇼핑 테스트"
+CLICK #search-btn
+WAIT_FOR #main_pack
+CHECK #main_pack

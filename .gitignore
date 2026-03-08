@@ -1,0 +1,28 @@
+# Logs and screenshots
+logs/*
+!logs/.gitkeep
+
+# OMC state
+.omc/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local

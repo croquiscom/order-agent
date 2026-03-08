@@ -1,0 +1,12 @@
+# alpha 재로그인 복구 시나리오
+# 목적: 로그인 세션이 풀린 상태에서도 ENSURE_LOGIN_ALPHA로 복구 후 플로우 재개 검증
+
+ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 1200
+CHECK_URL /catalog/products/100136725
+
+# 복구 후 장바구니 진입 가능 여부 확인
+NAVIGATE https://alpha.zigzag.kr/checkout/cart?from=pdp
+WAIT_FOR 1800
+CHECK_URL /checkout/cart
+DUMP_STATE relogin_recovery_after_cart

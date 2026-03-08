@@ -1,0 +1,46 @@
+# alpha 주문 생성 테스트 시나리오 (상품: 100136725, 바로구매 경로)
+# 기본 플로우: 사이트 접속 -> 상품페이지 -> 옵션선택 -> 바로구매 -> 포인트 전액 -> 결제완료
+# 성공 기준: 결제 전/후 최신 orderNumber(주문번호) 변경
+
+# 0) 결제 전 최신 orderNumber baseline 저장
+ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 3500
+EVAL "(() => { const btn = [...document.querySelectorAll('button')].find(b => (b.textContent || '').includes('주문상세 보기')); if (!btn) return 'no_order_detail_button'; btn.click(); return 'clicked_order_detail'; })()"
+WAIT_URL /checkout/orders
+CHECK_URL /checkout/orders
+SAVE_ORDER_NUMBER
+
+# 1) 상품페이지 진입
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 2200
+
+# 2) 옵션 선택 + 바로구매
+EVAL "(async () => { const text=(el)=>(el.textContent||'').trim(); const visible=(el)=>{ const r=el.getBoundingClientRect(); return r.width>0&&r.height>0; }; const btn=(name)=>[...document.querySelectorAll('button')].find(b=>text(b)===name&&visible(b)); const buy=btn('구매하기'); if(!buy) return 'no_buy_button'; buy.click(); await new Promise(r=>setTimeout(r,450)); const excluded=new Set(['구매하기','장바구니','바로구매','닫기','확인']); const clicked=new Set(); for(let i=0;i<5;i++){ if(location.href.includes('/checkout/order-sheets/')) return 'moved_order_sheet'; const direct=btn('바로구매'); if(direct){ direct.click(); await new Promise(r=>setTimeout(r,550)); if(location.href.includes('/checkout/order-sheets/')) return 'moved_order_sheet'; } const candidates=[...document.querySelectorAll('button,[role=button],li,div')].filter(el=>{ const t=text(el); if(!t||excluded.has(t)||clicked.has(t)) return false; if(t.length>20) return false; if(el.closest('[aria-hidden=true]')) return false; const disabled=el.disabled||el.getAttribute('aria-disabled')==='true'; return !disabled&&visible(el); }); if(!candidates.length) continue; candidates[0].click(); clicked.add(text(candidates[0])); await new Promise(r=>setTimeout(r,350)); } return location.href; })()"
+
+WAIT_URL /checkout/order-sheets/
+CHECK_URL /checkout/order-sheets/
+CHECK_URL from=product
+CHECK_NEW_ORDER_SHEET
+
+# 3) 포인트 전액 + 결제
+WAIT_FOR "text=전액사용"
+CHECK "text=전액사용"
+CLICK_SNAPSHOT_TEXT "포인트 전액사용"
+WAIT_FOR 1200
+CHECK "text=0원"
+EVAL "(() => { const labels=[...document.querySelectorAll('label,span,div')]; const agree=labels.find(el=>(el.textContent||'').includes('주문내용 확인 및 결제 동의')); let cb=null; if(agree){ const root=agree.closest('label,section,div,article')||agree.parentElement; cb=root?root.querySelector('input[type=checkbox]'):null; } if(!cb) cb=[...document.querySelectorAll('input[type=checkbox]')].pop(); if(!cb) return 'no_checkbox'; cb.checked=true; cb.dispatchEvent(new Event('input',{bubbles:true})); cb.dispatchEvent(new Event('change',{bubbles:true})); return 'checked'; })()"
+WAIT_FOR 400
+EVAL "(() => { const txt=(el)=>(el.textContent||'').replace(/\\s+/g,'').trim(); const btn=[...document.querySelectorAll('button,[role=button]')].find(el=>(txt(el).includes('0원구매하기')||txt(el).includes('0원결제하기'))); if(!btn) return 'no_zero_pay_button'; btn.click(); return `clicked:${txt(btn)}`; })()"
+WAIT_FOR 1200
+PRINT_ACTIVE_MODAL
+EVAL "(() => { const ok=[...document.querySelectorAll('button,[role=button]')].find(el=>((el.textContent||'').includes('확인'))); if(!ok) return 'no_confirm_modal'; ok.click(); return 'clicked_confirm'; })()"
+WAIT_FOR 6000
+
+# 4) 결제 후 orderNumber 변경 확인
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 3500
+EVAL "(() => { const btn = [...document.querySelectorAll('button')].find(b => (b.textContent || '').includes('주문상세 보기')); if (!btn) return 'no_order_detail_button'; btn.click(); return 'clicked_order_detail'; })()"
+WAIT_URL /checkout/orders
+CHECK_URL /checkout/orders
+CHECK_ORDER_NUMBER_CHANGED
+DUMP_STATE order_creation_100136725_direct
