@@ -2642,19 +2642,19 @@ def run_scenario(
                 if command.action == "SUBMIT_CANCEL_REQUEST":
                     current_url = _submit_cancel_request(command.args[0])
                     logger.info("SUBMIT_CANCEL_REQUEST finished: %s", current_url)
-                    scenario_outputs.append(("취소 요청 결과", current_url))
+                    pass  # 최종 URL로 대체
                     continue
 
                 if command.action == "SUBMIT_RETURN_REQUEST":
                     current_url = _submit_return_request(command.args[0])
                     logger.info("SUBMIT_RETURN_REQUEST finished: %s", current_url)
-                    scenario_outputs.append(("반품 요청 결과", current_url))
+                    pass  # 최종 URL로 대체
                     continue
 
                 if command.action == "SUBMIT_EXCHANGE_REQUEST":
                     current_url = _submit_exchange_request(command.args[0])
                     logger.info("SUBMIT_EXCHANGE_REQUEST finished: %s", current_url)
-                    scenario_outputs.append(("교환 요청 결과", current_url))
+                    pass  # 최종 URL로 대체
                     continue
 
                 if command.action == "PRINT_ACTIVE_MODAL":
@@ -2669,7 +2669,7 @@ def run_scenario(
                         current_url = agent_browser("get", "url", check=True).stdout.strip()
                         if "/checkout/order-completed/" in current_url:
                             logger.info("CHECK_PAYMENT_RESULT passed: %s", current_url)
-                            scenario_outputs.append(("결제 결과", current_url))
+                            pass  # 결제 결과 URL은 최종 URL로 대체
                             break
                         if "/api/payment/v1/request/" in current_url:
                             saw_payment_request = True
@@ -2724,7 +2724,7 @@ def run_scenario(
                     LAST_ORDER_SHEET_FILE.parent.mkdir(parents=True, exist_ok=True)
                     LAST_ORDER_SHEET_FILE.write_text(order_sheet_id, encoding="utf-8")
                     logger.info("CHECK_NEW_ORDER_SHEET passed: %s", order_sheet_id)
-                    scenario_outputs.append(("주문서 ID", order_sheet_id))
+                    pass  # 주문서 ID는 리포트에 포함하지 않음
                     continue
 
                 if command.action in {"SAVE_ORDER_DETAIL_ID", "SAVE_ORDER_NUMBER"}:
@@ -2735,8 +2735,6 @@ def run_scenario(
                         raise RuntimeError(f"{action_name} failed: not an order-detail url ({current_url})")
                     baseline_order_detail_id = order_detail_id
                     logger.info("%s saved: %s", action_name, baseline_order_detail_id)
-                    label = "주문번호" if "NUMBER" in action_name else "주문상세 ID"
-                    scenario_outputs.append((label, baseline_order_detail_id))
                     continue
 
                 if command.action in {"CHECK_ORDER_DETAIL_ID_CHANGED", "CHECK_ORDER_NUMBER_CHANGED"}:
@@ -2758,8 +2756,8 @@ def run_scenario(
                         baseline_order_detail_id,
                         order_detail_id,
                     )
-                    label = "새 주문번호" if "NUMBER" in action_name else "새 주문상세 ID"
-                    scenario_outputs.append((label, f"{baseline_order_detail_id} -> {order_detail_id}"))
+                    label = "주문번호" if "NUMBER" in action_name else "주문상세 ID"
+                    scenario_outputs.append((label, order_detail_id))
                     continue
 
                 if command.action == "CHECK_URL":
