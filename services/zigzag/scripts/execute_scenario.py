@@ -2242,6 +2242,26 @@ def _print_report(
         for label, value in outputs:
             out.write(f"    {label}: {value}\n")
 
+    # 실패 요약
+    failed_results = [r for r in results if not r.ok and r.error]
+    if failed_results:
+        out.write(f"{'─'*70}\n")
+        out.write("  Failure summary:\n")
+        for r in failed_results:
+            # [ERROR_CODE] 추출, 없으면 첫 60자
+            import re as _re
+            code_match = _re.search(r"\[([A-Z_]+)\]", r.error)
+            code = code_match.group(1) if code_match else ""
+            # 에러 메시지에서 핵심 부분만 추출 (]: 이후 또는 전체)
+            msg = r.error
+            if "]: " in msg:
+                msg = msg.split("]: ", 1)[1]
+            msg = msg[:80]
+            if code:
+                out.write(f"    L{r.line_no} {r.summary[:30]:<30}  [{code}] {msg}\n")
+            else:
+                out.write(f"    L{r.line_no} {r.summary[:30]:<30}  {msg}\n")
+
     out.write(f"{'─'*70}\n\n")
 
 
