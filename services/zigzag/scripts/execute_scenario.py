@@ -56,7 +56,7 @@ ALLOWED_ACTIONS = {
 BLOCKED_CLICK_TARGETS = {"confirm_payment"}
 ORDER_SHEET_ID_PATTERN = re.compile(r"/checkout/order-sheets/([a-f0-9-]+)")
 LAST_ORDER_SHEET_FILE = REPO_ROOT / "logs" / "last_order_sheet_id.txt"
-ORDER_DETAIL_ID_PATTERN = re.compile(r"/checkout/orders/([0-9]+)")
+ORDER_DETAIL_ID_PATTERN = re.compile(r"/checkout/(?:orders|order-completed)/([0-9]+)")
 SNAPSHOT_REF_PATTERN = re.compile(r'^\-\s+\w+\s+"([^"]+)"\s+\[ref=([^\]]+)\]')
 SNAPSHOT_NODE_PATTERN = re.compile(r'^\-\s+(\w+)(?:\s+"([^"]*)")?\s+\[ref=([^\]]+)\]')
 SNAPSHOT_CART_COUNT_PATTERN = re.compile(r"전체선택\s*\((\d+)\s*/\s*(\d+)\)")
@@ -261,21 +261,48 @@ def _page_has_already_logged_in_notice() -> bool:
     return "true" in (out.stdout or "").lower()
 
 
-def _click_by_snapshot_text(target_text: str) -> tuple[str, str]:
+def _click_by_snapshot_text(target_text: str, retry_on_overlay: bool = True) -> tuple[str, str]:
+    import logging as _logging
+    _log = _logging.getLogger("order-agent-exec")
     snapshot_out = agent_browser("snapshot", "-i", check=True).stdout or ""
-    candidates: list[tuple[str, str]] = []
+    # Use NODE_PATTERN to capture role (checkbox detection)
+    candidates: list[tuple[str, str, str]] = []  # (label, ref, role)
     for line in snapshot_out.splitlines():
-        m = SNAPSHOT_REF_PATTERN.match(line.strip())
+        m = SNAPSHOT_NODE_PATTERN.match(line.strip())
         if not m:
             continue
-        label, ref = m.group(1), m.group(2)
-        if target_text in label:
-            candidates.append((label, ref))
+        role, label, ref = (m.group(1) or "").strip(), (m.group(2) or "").strip(), (m.group(3) or "").strip()
+        if label and target_text in label:
+            candidates.append((label, ref, role))
     if not candidates:
         raise RuntimeError(f"CLICK_SNAPSHOT_TEXT failed: no match for '{target_text}'")
     exact = [c for c in candidates if c[0].strip() == target_text]
-    label, ref = exact[0] if exact else candidates[0]
-    agent_browser("click", f"@{ref}", check=True)
+    label, ref, role = exact[0] if exact else candidates[0]
+    cmd = "check" if role == "checkbox" else "click"
+    try:
+        agent_browser(cmd, f"@{ref}", check=True)
+    except AgentBrowserError as exc:
+        if retry_on_overlay and "blocked by another element" in (exc.stderr or "").lower():
+            _log.warning("CLICK_SNAPSHOT_TEXT overlay blockage on @%s. Retrying with ESC.", ref)
+            agent_browser("press", "Escape", check=False)
+            time.sleep(0.3)
+            # Re-take snapshot in case refs changed after ESC
+            snapshot_out2 = agent_browser("snapshot", "-i", check=True).stdout or ""
+            candidates2: list[tuple[str, str, str]] = []
+            for line in snapshot_out2.splitlines():
+                m2 = SNAPSHOT_NODE_PATTERN.match(line.strip())
+                if not m2:
+                    continue
+                r2_role, l2, r2 = (m2.group(1) or "").strip(), (m2.group(2) or "").strip(), (m2.group(3) or "").strip()
+                if l2 and target_text in l2:
+                    candidates2.append((l2, r2, r2_role))
+            if candidates2:
+                exact2 = [c for c in candidates2 if c[0].strip() == target_text]
+                label, ref, role = exact2[0] if exact2 else candidates2[0]
+                cmd = "check" if role == "checkbox" else "click"
+            agent_browser(cmd, f"@{ref}", check=True)
+        else:
+            raise
     return label, ref
 
 
@@ -2202,6 +2229,78 @@ def _print_report(
     out.write(f"{'─'*70}\n\n")
 
 
+
+def _preflight_check(logger: "logging.Logger", dry_run: bool = False) -> bool:
+    """Run environment checks before scenario execution. Returns True if ready."""
+    if dry_run:
+        return True
+
+    out = sys.stderr
+    out.write(f"\n{'─'*70}\n")
+    out.write("  Preflight Check\n")
+    out.write(f"{'─'*70}\n")
+
+    # 1. agent-browser CLI
+    import shutil
+    ab_path = shutil.which("agent-browser")
+    if not ab_path:
+        out.write("  FAIL  agent-browser CLI not found in PATH\n")
+        out.write(f"{'─'*70}\n\n")
+        logger.error("Preflight failed: agent-browser not in PATH")
+        return False
+    out.write(f"  PASS  agent-browser: {ab_path}\n")
+
+    # 2. CDP connection / browser auto-launch
+    try:
+        from core.runner import _ensure_cdp_browser_ready, _cdp_port
+        port = _cdp_port()
+        cdp_ok = _ensure_cdp_browser_ready()
+        if not cdp_ok:
+            out.write(f"  FAIL  CDP port {port}: no browser running\n")
+            out.write("        -> Chrome을 CDP 모드로 실행하세요:\n")
+            out.write("           ./scripts/run_scenario_chrome.sh <scenario.scn>\n")
+            out.write(f"{'─'*70}\n\n")
+            logger.error("Preflight failed: CDP not ready on port %s", port)
+            return False
+        out.write(f"  PASS  CDP port {port}: connected\n")
+    except Exception as exc:
+        out.write(f"  FAIL  CDP check error: {exc}\n")
+        out.write(f"{'─'*70}\n\n")
+        logger.error("Preflight failed: %s", exc)
+        return False
+
+    # 3. Page availability - open about:blank if no page
+    try:
+        result = agent_browser("get", "url", check=False)
+        if result.returncode != 0 or not result.stdout.strip():
+            logger.info("No active page detected. Creating new tab via CDP...")
+            import urllib.request
+            cdp_url = f"http://127.0.0.1:{port}/json/new?about:blank"
+            req = urllib.request.Request(cdp_url, method="PUT")
+            try:
+                urllib.request.urlopen(req, timeout=5)
+                time.sleep(0.5)
+            except Exception:
+                pass
+            result = agent_browser("get", "url", check=False)
+            if result.returncode != 0:
+                out.write("  FAIL  No page available (tried creating tab via CDP)\n")
+                out.write(f"{'─'*70}\n\n")
+                logger.error("Preflight failed: cannot open initial page")
+                return False
+            out.write("  PASS  Page: about:blank (auto-created)\n")
+        else:
+            url = result.stdout.strip()
+            display_url = url if len(url) <= 50 else url[:47] + "..."
+            out.write(f"  PASS  Page: {display_url}\n")
+    except Exception as exc:
+        out.write(f"  WARN  Page check skipped: {exc}\n")
+
+    out.write(f"{'─'*70}\n\n")
+    logger.info("Preflight check passed.")
+    return True
+
+
 def run_scenario(
     path: Path,
     dry_run: bool,
@@ -2214,6 +2313,10 @@ def run_scenario(
     keep_browser_open: bool = False,
 ) -> int:
     logger = setup_logger("order-agent-exec")
+
+    if not _preflight_check(logger, dry_run=dry_run):
+        return 1
+
     logger.info("Loading scenario: %s", path)
     commands = parse_scenario(path)
     if not commands:
@@ -2432,7 +2535,7 @@ def run_scenario(
                     continue
 
                 if command.action == "CLICK_SNAPSHOT_TEXT":
-                    label, ref = _click_by_snapshot_text(command.args[0])
+                    label, ref = _click_by_snapshot_text(command.args[0], retry_on_overlay=retry_on_overlay)
                     logger.info("CLICK_SNAPSHOT_TEXT matched '%s' via @%s", label, ref)
                     continue
 
