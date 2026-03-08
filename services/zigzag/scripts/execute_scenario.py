@@ -2184,6 +2184,7 @@ class _StepResult:
     summary: str
     ok: bool
     elapsed_ms: float
+    error: str = ""
 
 
 def _action_summary(action: str, args: list[str], max_len: int = 60) -> str:
@@ -2224,6 +2225,8 @@ def _print_report(
         mark = "PASS" if r.ok else "FAIL"
         time_str = f"{r.elapsed_ms:7.0f}ms"
         out.write(f"  {mark}  {r.step:>3}/{total}  L{r.line_no:<4}  {time_str}  {r.summary}\n")
+        if not r.ok and r.error:
+            out.write(f"              ↳ {r.error}\n")
 
     out.write(f"{'─'*70}\n")
     total_sec = total_elapsed_ms / 1000
@@ -2360,7 +2363,7 @@ def run_scenario(
 
     failures = 0
     step_start_times: list[float] = []
-    failed_steps: set[int] = set()
+    failed_steps: dict[int, str] = {}  # step_idx -> error message
     scenario_outputs: list[tuple[str, str]] = []
     scenario_start = time.time()
     try:
@@ -2850,7 +2853,8 @@ def run_scenario(
                             exc = retry_exc
 
                 failures += 1
-                failed_steps.add(idx)
+                _ab_err_msg = (exc.stderr or exc.stdout or "").strip()[:120]
+                failed_steps[idx] = _ab_err_msg or f"agent-browser exit code {exc.returncode}"
                 logger.error("agent-browser command failed at line %s", command.line_no)
                 logger.error("command: %s", " ".join(exc.cmd))
                 if exc.stdout.strip():
@@ -2878,7 +2882,7 @@ def run_scenario(
 
             except RuntimeError as exc:
                 failures += 1
-                failed_steps.add(idx)
+                failed_steps[idx] = str(exc)[:120]
                 logger.error("Runtime command failed at line %s: %s", command.line_no, exc)
                 logger.error("Failure modal context: %s", _failure_modal_summary())
                 submit_ui_line = _collect_modal_guidance_line()
@@ -2921,6 +2925,7 @@ def run_scenario(
             summary=_action_summary(cmd.action, cmd.args),
             ok=idx not in failed_steps,
             elapsed_ms=(end - start) * 1000,
+            error=failed_steps.get(idx, ""),
         ))
     _print_report(path.name, step_results, (scenario_end - scenario_start) * 1000, dry_run, scenario_outputs)
 
