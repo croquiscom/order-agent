@@ -52,6 +52,7 @@ ALLOWED_ACTIONS = {
     "SUBMIT_EXCHANGE_REQUEST",
     "PRINT_ACTIVE_MODAL",
     "CHECK_PAYMENT_RESULT",
+    "EXPECT_FAIL",
 }
 BLOCKED_CLICK_TARGETS = {"confirm_payment"}
 ORDER_SHEET_ID_PATTERN = re.compile(r"/checkout/order-sheets/([a-f0-9-]+)")
@@ -109,6 +110,8 @@ def validate_command(command: ScenarioCommand) -> None:
         "CHECK_PAYMENT_RESULT",
     } and len(args) != 0:
         raise ValueError(f"line {line_no}: {action} requires no arguments")
+    if action == "EXPECT_FAIL" and len(args) > 1:
+        raise ValueError(f"line {line_no}: EXPECT_FAIL takes 0 or 1 argument (optional error code pattern)")
     if action == "FILL" and len(args) < 2:
         raise ValueError(f"line {line_no}: FILL requires field_id and value")
     if action == "CLICK" and args and args[0] in BLOCKED_CLICK_TARGETS:
@@ -2385,11 +2388,32 @@ def run_scenario(
     step_start_times: list[float] = []
     failed_steps: dict[int, str] = {}  # step_idx -> error message
     scenario_outputs: list[tuple[str, str]] = []
+    expect_fail_pattern: str | None = None  # EXPECT_FAIL에서 설정, 다음 스텝에서 소비
+    expect_fail_target_idx: int = -1  # EXPECT_FAIL이 적용될 스텝 인덱스
     scenario_start = time.time()
     try:
         for idx, command in enumerate(commands, 1):
             step_start_times.append(time.time())
             validate_command(command)
+
+            # EXPECT_FAIL 미소비 체크: 타겟 스텝이 실패 없이 성공하면 EXPECT_FAIL 위반
+            if expect_fail_pattern is not None and idx != expect_fail_target_idx:
+                failures += 1
+                failed_steps[expect_fail_target_idx] = f"EXPECT_FAIL violated: step succeeded but failure was expected (pattern='{expect_fail_pattern}')"
+                logger.error("EXPECT_FAIL violated at step %s: expected failure did not occur (pattern='%s')",
+                             expect_fail_target_idx, expect_fail_pattern)
+                expect_fail_pattern = None
+                if not continue_on_error:
+                    break
+
+            # EXPECT_FAIL: 다음 스텝의 기대 실패 패턴을 설정하고 자체는 즉시 PASS
+            if command.action == "EXPECT_FAIL":
+                expect_fail_pattern = command.args[0] if command.args else ""
+                expect_fail_target_idx = idx + 1
+                logger.info("[STEP %s/%s] line %s: EXPECT_FAIL %s",
+                            idx, len(commands), command.line_no,
+                            expect_fail_pattern or "(any error)")
+                continue
             cli_args = [] if command.action in {
                 "CHECK_URL",
                 "CHECK_NOT_URL",
@@ -2412,6 +2436,7 @@ def run_scenario(
                 "SUBMIT_EXCHANGE_REQUEST",
                 "PRINT_ACTIVE_MODAL",
                 "CHECK_PAYMENT_RESULT",
+                "EXPECT_FAIL",
             } else to_agent_browser_args(command)
             logger.info("[STEP %s/%s] line %s: %s", idx, len(commands), command.line_no, " ".join([command.action, *command.args]))
 
@@ -2872,8 +2897,19 @@ def run_scenario(
                         except AgentBrowserError as retry_exc:
                             exc = retry_exc
 
-                failures += 1
                 _ab_err_msg = (exc.stderr or exc.stdout or "").strip()[:120]
+                # EXPECT_FAIL: 기대된 실패면 PASS 처리
+                if expect_fail_pattern is not None:
+                    if expect_fail_pattern == "" or expect_fail_pattern in _ab_err_msg:
+                        logger.info("EXPECT_FAIL matched at line %s: %s", command.line_no, _ab_err_msg[:80])
+                        expect_fail_pattern = None
+                        continue
+                    else:
+                        logger.error("EXPECT_FAIL mismatch at line %s: expected '%s' but got: %s",
+                                     command.line_no, expect_fail_pattern, _ab_err_msg[:80])
+                    expect_fail_pattern = None
+
+                failures += 1
                 failed_steps[idx] = _ab_err_msg or f"agent-browser exit code {exc.returncode}"
                 logger.error("agent-browser command failed at line %s", command.line_no)
                 logger.error("command: %s", " ".join(exc.cmd))
@@ -2901,8 +2937,20 @@ def run_scenario(
                     break
 
             except RuntimeError as exc:
+                _rt_err_msg = str(exc)[:120]
+                # EXPECT_FAIL: 기대된 실패면 PASS 처리
+                if expect_fail_pattern is not None:
+                    if expect_fail_pattern == "" or expect_fail_pattern in _rt_err_msg:
+                        logger.info("EXPECT_FAIL matched at line %s: %s", command.line_no, _rt_err_msg[:80])
+                        expect_fail_pattern = None
+                        continue
+                    else:
+                        logger.error("EXPECT_FAIL mismatch at line %s: expected '%s' but got: %s",
+                                     command.line_no, expect_fail_pattern, _rt_err_msg[:80])
+                    expect_fail_pattern = None
+
                 failures += 1
-                failed_steps[idx] = str(exc)[:120]
+                failed_steps[idx] = _rt_err_msg
                 logger.error("Runtime command failed at line %s: %s", command.line_no, exc)
                 logger.error("Failure modal context: %s", _failure_modal_summary())
                 submit_ui_line = _collect_modal_guidance_line()

@@ -1,0 +1,23 @@
+# alpha 클레임 교환 정책 차단 검증 시나리오
+# 목적: 협찬 프로모션 등 정책상 교환 불가 주문에 대해 POLICY_BLOCKED 에러가 정상 발생하는지 검증
+
+# 1) 주문 목록 진입 + 배송완료 필터
+ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
+APPLY_ORDER_STATUS_FILTER 배송완료
+
+# 2) 교환 가능한 주문상세 진입
+CLICK_ORDER_DETAIL_WITH_ACTION 교환
+WAIT_URL /checkout/orders/
+WAIT_FOR 1200
+
+# 3) 교환하기 클릭 → 교환 요청 페이지 진입
+EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const all=[...document.querySelectorAll('*')]; const leaf=all.find(el=>norm(el.textContent)==='교환하기' || norm(el.textContent)==='교환신청' || norm(el.textContent)==='교환'); if(!leaf) throw new Error('no_exchange_action'); const clickable=leaf.closest('button,[role=button],a,[role=link],[tabindex],div,span') || leaf; clickable.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(clickable.textContent)}`; })()"
+WAIT_URL /request-exchange
+WAIT_FOR 700
+
+# 4) 교환 사유 선택 + 제출 → 정책 차단 기대
+EXPECT_FAIL EXCHANGE_POLICY_BLOCKED
+SUBMIT_EXCHANGE_REQUEST "__ASK__"
+
+DUMP_STATE claim_exchange_policy_blocked
