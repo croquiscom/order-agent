@@ -1957,6 +1957,7 @@ def _submit_exchange_request(reason_text: str) -> str:
         _attempt_exchange_submit()
         time.sleep(0.9)
 
+    # "확인" 버튼 클릭 JS (폴링 루프에서도 사용)
     confirm_js = (
         "(function(){"
         "const norm=s=>(s||'').replace(/\\s+/g,'').trim();"
@@ -1965,15 +1966,10 @@ def _submit_exchange_request(reason_text: str) -> str:
         "return 'no_confirm_modal';"
         "})()"
     )
-    confirmed = False
-    try:
-        _click_by_snapshot_text("확인")
-        confirmed = True
-    except Exception:
-        pass
-    if not confirmed:
-        agent_browser("eval", confirm_js, check=False)
-    time.sleep(1.3)
+
+    # 제출 후 모달/페이지 변화를 기다린 뒤 폴링 루프에서 결과를 판단한다.
+    # "확인" 모달을 여기서 닫지 않아야 폴링 루프에서 정책 차단 메시지를 감지할 수 있다.
+    time.sleep(1.5)
 
     def _page_text_norm() -> str:
         out = agent_browser(
@@ -2007,6 +2003,25 @@ def _submit_exchange_request(reason_text: str) -> str:
             raise RuntimeError(
                 "SUBMIT_EXCHANGE_REQUEST failed [EXCHANGE_REQUEST_BLOCKED_1P1]: "
                 "1+1 option set must be exchanged together"
+            )
+
+        # 정책 차단 감지 (협찬 프로모션 등)
+        _policy_block_keywords = ["협찬프로모션은", "요청을할수없습니다", "취소,반품,교환요청을"]
+        if any(kw in body_norm for kw in _policy_block_keywords):
+            # "확인" 눌러 모달 닫기
+            try:
+                _click_by_snapshot_text("확인")
+            except Exception:
+                agent_browser("eval", confirm_js, check=False)
+            # body에서 차단 메시지 추출
+            _block_snippet = ""
+            for kw in _policy_block_keywords:
+                idx = body_norm.find(kw)
+                if idx >= 0:
+                    _block_snippet = body_norm[max(0, idx):idx + 60]
+                    break
+            raise RuntimeError(
+                f"SUBMIT_EXCHANGE_REQUEST failed [EXCHANGE_POLICY_BLOCKED]: {_block_snippet}"
             )
 
         if "옵션을선택해주세요" in body_norm:
