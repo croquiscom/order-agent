@@ -8,7 +8,7 @@ NAVIGATE https://alpha.zigzag.kr/checkout/orders/{{order_number}}
 WAIT_FOR 1500
 
 # 2) 교환하기 클릭 -> 교환 요청 페이지 진입
-EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const all=[...document.querySelectorAll('*')]; const leaf=all.find(el=>norm(el.textContent)==='교환하기' || norm(el.textContent)==='교환신청' || norm(el.textContent)==='교환'); if(!leaf) throw new Error('no_exchange_action'); const clickable=leaf.closest('button,[role=button],a,[role=link],[tabindex],div,span') || leaf; clickable.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(clickable.textContent)}`; })()"
+EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const btns=[...document.querySelectorAll('button,[role=button],a')]; const leaf=btns.find(el=>norm(el.textContent)==='교환하기' || norm(el.textContent)==='교환신청'); if(!leaf) throw new Error('no_exchange_action'); leaf.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(leaf.textContent)}`; })()"
 WAIT_URL /request-exchange
 WAIT_FOR 700
 
