@@ -2484,7 +2484,7 @@ def run_scenario(
     expect_fail_target_idx: int = -1  # EXPECT_FAIL이 적용될 스텝 인덱스
     scenario_start = time.time()
     try:
-        _vars = scenario_vars or {}
+        _vars = {k.lower(): v for k, v in (scenario_vars or {}).items()}
         _default_base_url = "https://alpha.zigzag.kr"
         _base_url = (base_url or "").rstrip("/") if base_url else None
         if _base_url:
@@ -2496,7 +2496,7 @@ def run_scenario(
                 import re as _re
                 expanded = []
                 for a in command.args:
-                    expanded.append(_re.sub(r"\{\{(\w+)\}\}", lambda m: _vars.get(m.group(1), m.group(0)), a))
+                    expanded.append(_re.sub(r"\{\{(\w+)\}\}", lambda m: _vars.get(m.group(1).lower(), m.group(0)), a))
                 command = ScenarioCommand(line_no=command.line_no, action=command.action, args=expanded)
             # base URL 치환
             if _base_url and any(_default_base_url in a for a in command.args):
