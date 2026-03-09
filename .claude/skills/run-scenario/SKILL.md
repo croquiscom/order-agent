@@ -29,10 +29,13 @@ $ARGUMENTS를 파싱하여 아래 규칙으로 실행한다:
    - 파일명만 주어졌으면 `services/zigzag/scenarios/` 에서 탐색
 
 3. 키워드로 시나리오 그룹 지정 가능:
+   - `cancel`: 취소 클레임 (기존 주문 대상)
+   - `return`: 반품 클레임 (기존 배송완료 주문 대상, 주문 생성 불필요)
+   - `exchange`: 교환 클레임 (기존 배송완료 주문 대상, 주문 생성 불필요)
    - `order+cancel`: 주문 생성 → 취소 클레임
-   - `order+return`: 주문 생성 → 반품 클레임
-   - `order+exchange`: 주문 생성 → 교환 클레임
-   - `all-claims`: 주문 생성 → 취소/반품/교환 순차 실행
+   - `order+return`: 주문 생성 → 반품 클레임 (배송완료 전환 필요)
+   - `order+exchange`: 주문 생성 → 교환 클레임 (배송완료 전환 필요)
+   - `all-claims`: 취소/반품/교환 순차 실행 (주문 생성 없이)
    - `all`: 전체 시나리오 실행
 
    키워드 매핑:
@@ -40,6 +43,8 @@ $ARGUMENTS를 파싱하여 아래 규칙으로 실행한다:
    - `cancel` → `alpha_claim_cancel.scn`
    - `return` → `alpha_claim_return.scn`
    - `exchange` → `alpha_claim_exchange.scn`
+
+   > **참고:** 반품/교환은 배송완료 상태 주문이 필요하므로 시나리오가 기존 주문에서 자동 탐색한다. `order+` 접두사는 새 주문이 필요한 경우(취소 등)에만 사용.
 
 4. 주요 옵션:
    - `--dry-run`: 실제 브라우저 없이 파싱/검증만
@@ -58,9 +63,10 @@ $ARGUMENTS를 파싱하여 아래 규칙으로 실행한다:
 ## 예시
 
 - `/run-scenario` — 기본 시나리오
-- `/run-scenario alpha_claim_cancel.scn` — 취소 클레임
+- `/run-scenario exchange` — 교환 클레임 (기존 배송완료 주문 대상)
+- `/run-scenario order+cancel` — 주문 생성 → 취소 (키워드)
+- `/run-scenario alpha_claim_cancel.scn` — 취소 클레임 (파일 직접 지정)
 - `/run-scenario --dry-run alpha_direct_buy_order_normal.scn` — 드라이런
-- `/run-scenario order+cancel` — 주문 → 취소 (키워드)
 - `/run-scenario --continue-on-error alpha_full_history_regression.scn` — 회귀 테스트
 
 ---
