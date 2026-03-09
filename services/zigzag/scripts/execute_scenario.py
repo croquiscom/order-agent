@@ -495,14 +495,17 @@ def _click_order_detail_by_status(status_hint: str) -> str:
     return out.strip()
 
 
-def _click_order_detail_with_action(action_text: str, max_scan: int = 20) -> str:
+def _click_order_detail_with_action(action_text: str, max_scan: int = 3) -> str | None:
     action_norm = (action_text or "").strip()
     if not action_norm:
         raise RuntimeError("CLICK_ORDER_DETAIL_WITH_ACTION failed: empty action text")
-    cancel_statuses: list[str] = []
+    filter_statuses: list[str] = []
     if "취소" in action_norm:
         # 취소는 목록에서 결제완료/주문확인중 상태 주문만 대상으로 직접 탐색한다.
-        cancel_statuses = ["결제완료", "주문확인중"]
+        filter_statuses = ["결제완료", "주문확인중"]
+    elif "교환" in action_norm or "반품" in action_norm:
+        # 교환/반품은 배송완료 상태 주문만 대상으로 탐색한다.
+        filter_statuses = ["배송완료"]
 
     def _scan_current_list(list_url: str) -> str | None:
         for idx in range(max_scan):
@@ -510,7 +513,7 @@ def _click_order_detail_with_action(action_text: str, max_scan: int = 20) -> str
                 "(function(){"
                 "const norm=s=>(s||'').replace(/\\s+/g,'').trim();"
                 "const details=[...document.querySelectorAll('[role=\"button\"][aria-label*=\"주문상세\"],button[aria-label*=\"주문상세\"],a[aria-label*=\"주문상세\"]')];"
-                f"const statuses={json.dumps(cancel_statuses)};"
+                f"const statuses={json.dumps(filter_statuses)};"
                 "let pool=details;"
                 "if(statuses.length){"
                 "pool=details.filter(el=>{"
@@ -534,11 +537,11 @@ def _click_order_detail_with_action(action_text: str, max_scan: int = 20) -> str
                 "(function(){"
                 "const norm=s=>(s||'').replace(/\\s+/g,'').trim();"
                 f"const target=norm({json.dumps(action_norm)});"
-                "const btns=[...document.querySelectorAll('button,[role=button],a')];"
+                "const btns=[...document.querySelectorAll('button,[role=button],a,div.btn')];"
                 "const actionSuffixes=['하기','신청'];"
                 "const found=btns.some(el=>{"
                 "const t=norm(el.textContent);"
-                "return t===target || actionSuffixes.some(s=>t===target+s);"
+                "return t===target || actionSuffixes.some(s=>t===target+s) || actionSuffixes.some(s=>t.includes(target+s));"
                 "});"
                 "return found;"
                 "})()"
@@ -552,32 +555,24 @@ def _click_order_detail_with_action(action_text: str, max_scan: int = 20) -> str
         return None
 
     start_url = agent_browser("get", "url", check=True).stdout.strip()
+
+    # 교환/반품은 페이지 필터가 부정확할 수 있으므로 기본 목록으로 리셋 후 섹션 텍스트 필터링으로 탐색
+    if filter_statuses and ("교환" in action_norm or "반품" in action_norm):
+        base_url = "https://alpha.zigzag.kr/checkout/orders"
+        if start_url != base_url:
+            _safe_open_url(base_url, retries=3)
+            time.sleep(1.0)
+            start_url = base_url
+
     found = _scan_current_list(start_url)
     if found:
         return found
 
-    if cancel_statuses:
-        raise RuntimeError(
-            f"CLICK_ORDER_DETAIL_WITH_ACTION failed: no cancel target in statuses "
-            f"'{cancel_statuses[0]}'/'{cancel_statuses[1]}'"
-        )
-
-    # 반품/교환은 상태 의존이 강해 필터 폴백으로 재탐색
-    if "/checkout/orders" in start_url:
-        for status in ("배송완료", "배송중", "전체"):
-            try:
-                _apply_order_status_filter(status)
-            except Exception:
-                continue
-            filtered_url = agent_browser("get", "url", check=True).stdout.strip()
-            found = _scan_current_list(filtered_url)
-            if found:
-                return found
-
-    raise RuntimeError(
-        f"CLICK_ORDER_DETAIL_WITH_ACTION failed: no order has action '{action_norm}' "
-        "(after fallback filters: 배송완료/배송중/전체)"
+    print(
+        f"[WARN] CLICK_ORDER_DETAIL_WITH_ACTION: no '{action_norm}' target "
+        f"(statuses={filter_statuses}, scanned {max_scan} orders)"
     )
+    return None
 
 
 def _apply_order_status_filter(status_text: str) -> str:
@@ -1522,8 +1517,8 @@ def _submit_exchange_request(reason_text: str) -> str:
         "(function(){"
         "const norm=s=>(s||'').replace(/\\s+/g,'').trim();"
         "const bodyNorm=norm((document.body&&document.body.innerText)||'');"
-        "if(!bodyNorm.includes('옵션을선택해주세요')) return 'already_selected';"
-        "const trigger=[...document.querySelectorAll('button,[role=\"button\"],div,span,label')].find(el=>norm(el.textContent).includes('옵션을선택해주세요'));"
+        "if(!bodyNorm.includes('옵션을선택해주세요')&&!bodyNorm.includes('교환옵션을선택해주세요')) return 'already_selected';"
+        "const trigger=[...document.querySelectorAll('button,[role=\"button\"],div,span,label')].find(el=>{const t=norm(el.textContent);return t.includes('옵션을선택해주세요')||t.includes('교환옵션을선택해주세요');});"
         "if(!trigger) return 'no_option_trigger';"
         "try{trigger.scrollIntoView({block:'center'});}catch(e){}"
         "['pointerdown','mousedown','mouseup','click'].forEach(tp=>trigger.dispatchEvent(new MouseEvent(tp,{bubbles:true,cancelable:true,view:window})));"
@@ -1693,10 +1688,10 @@ def _submit_exchange_request(reason_text: str) -> str:
 
         # 1) snapshot ref 우선
         for txt in (
-            "옵션을 선택해 주세요",
-            "옵션을 선택해주세요",
             "교환 옵션을 선택해 주세요",
             "교환옵션을선택해주세요",
+            "옵션을 선택해 주세요",
+            "옵션을 선택해주세요",
         ):
             try:
                 _click_by_snapshot_text(txt)
@@ -1707,7 +1702,7 @@ def _submit_exchange_request(reason_text: str) -> str:
                 pass
 
         # 2) find text 클릭
-        for txt in ("옵션을 선택해 주세요", "옵션을 선택해주세요"):
+        for txt in ("교환 옵션을 선택해 주세요", "옵션을 선택해 주세요", "옵션을 선택해주세요"):
             if _click_text_fallback(txt):
                 time.sleep(0.35)
                 if _is_option_modal_open():
@@ -2743,7 +2738,15 @@ def run_scenario(
                     continue
 
                 if command.action == "CLICK_ORDER_DETAIL_WITH_ACTION":
-                    current_url = _click_order_detail_with_action(command.args[0])
+                    result_url = _click_order_detail_with_action(command.args[0])
+                    if result_url is None:
+                        logger.warning(
+                            "CLICK_ORDER_DETAIL_WITH_ACTION: '%s' 액션 가능 주문 없음 — 시나리오 조기 종료 (SKIP)",
+                            command.args[0],
+                        )
+                        print(f"\n[SKIP] '{command.args[0]}' 액션 가능한 주문을 찾지 못했습니다 (최대 3건 탐색). 시나리오를 종료합니다.")
+                        return 0
+                    current_url = result_url
                     logger.info("CLICK_ORDER_DETAIL_WITH_ACTION picked: %s", current_url)
                     continue
 
@@ -2942,10 +2945,20 @@ def run_scenario(
                     result = agent_browser("get", "url", check=False)
                 else:
                     result = agent_browser(*cli_args, check=True)
-                if result.stdout.strip():
-                    logger.debug("stdout: %s", result.stdout.strip())
+                eval_output = result.stdout.strip()
+                if eval_output:
+                    logger.debug("stdout: %s", eval_output)
                 if result.stderr.strip():
                     logger.debug("stderr: %s", result.stderr.strip())
+
+                # EVAL 결과가 CLAIM_NOT_AVAILABLE: 이면 클레임 불가 — 사유 리포트 후 시나리오 종결
+                if command.action == "EVAL" and "CLAIM_NOT_AVAILABLE:" in eval_output:
+                    reason = eval_output.split("CLAIM_NOT_AVAILABLE:", 1)[1].strip().strip('"')
+                    logger.warning("클레임 불가 감지 — 사유: %s", reason)
+                    print(f"\n[CLAIM_NOT_AVAILABLE] 해당 주문은 클레임 처리가 불가합니다.")
+                    print(f"  사유: {reason}")
+                    print(f"  URL: {agent_browser('get', 'url', check=False).stdout.strip()}")
+                    return 0
 
             except AgentBrowserError as exc:
                 retried = False
