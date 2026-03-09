@@ -1,17 +1,18 @@
-# /browser-status - 브라우저/CDP 상태 확인
+---
+name: browser-status
+description: "Diagnoses Chrome browser and CDP connection status for scenario execution readiness. Use when: 브라우저 상태, CDP 확인, 연결 확인, browser status, 브라우저 안됨."
+---
 
-## 목적
+# 브라우저/CDP 상태 확인
+
 시나리오 실행 전 Chrome 브라우저와 CDP(Chrome DevTools Protocol) 연결 상태를 진단한다.
-"agent-browser not found"나 "CDP 연결 실패" 같은 문제를 사전에 파악한다.
 
-## 사용 시점
-- 시나리오 실행 전 환경 점검
-- CDP 연결 오류 발생 시 진단
-- 브라우저가 제대로 떠 있는지 확인할 때
+**When to Use:** 실행 전 환경 점검, CDP 연결 오류 진단, 브라우저 실행 확인
+**Not for:** 시나리오 실행 → `run-scenario` | 실패 분석 → `analyze-failure`
 
-## 실행 방법
+---
 
-아래 항목을 순서대로 점검하고 결과를 보고한다:
+## Execution Steps
 
 1. **agent-browser CLI 확인**
    ```bash
@@ -36,14 +37,21 @@
    - alpha.zigzag.kr 탭이 있는지 확인
 
 5. **환경변수 상태**
-   - `ORDER_AGENT_CDP_PORT`
-   - `ORDER_AGENT_BROWSER_ATTACH_ONLY`
-   - `AGENT_BROWSER_AUTO_CONNECT`
-   - `AGENT_BROWSER_EXECUTABLE_PATH`
+   - `ORDER_AGENT_CDP_PORT`, `ORDER_AGENT_BROWSER_ATTACH_ONLY`
+   - `AGENT_BROWSER_AUTO_CONNECT`, `AGENT_BROWSER_EXECUTABLE_PATH`
 
 6. **진단 요약**
    - 모든 항목 통과: "Ready - 시나리오 실행 가능"
    - 일부 실패: 문제 항목과 해결 방법 안내
 
+---
+
 ## 예시
+
 - `/browser-status` — 전체 상태 점검
+
+---
+
+**Related Skills:**
+- [run-scenario](../run-scenario/SKILL.md) - 시나리오 실행
+- [analyze-failure](../analyze-failure/SKILL.md) - 실패 분석
