@@ -534,8 +534,13 @@ def _click_order_detail_with_action(action_text: str, max_scan: int = 20) -> str
                 "(function(){"
                 "const norm=s=>(s||'').replace(/\\s+/g,'').trim();"
                 f"const target=norm({json.dumps(action_norm)});"
-                "const t=norm((document.body&&document.body.innerText)||'');"
-                "return t.includes(target);"
+                "const btns=[...document.querySelectorAll('button,[role=button],a')];"
+                "const actionSuffixes=['하기','신청'];"
+                "const found=btns.some(el=>{"
+                "const t=norm(el.textContent);"
+                "return t===target || actionSuffixes.some(s=>t===target+s);"
+                "});"
+                "return found;"
                 "})()"
             )
             has_action = "true" in (agent_browser("eval", check_js, check=True).stdout or "").lower()
