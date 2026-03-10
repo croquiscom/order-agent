@@ -97,7 +97,40 @@
 - OTP 읽기 시 `websocket-client` 패키지 필요 (`pip install websocket-client`).
 - 현재 작업 환경에서는 `pytest` 명령이 없어 테스트 실행 불가(설치 필요).
 
-## 8) 변경 시 유의사항
+## 8) CDP 직접 입력 패턴 (agent-browser 우회)
+### 문제
+- `agent-browser fill`은 특수문자(`!`, `@`, `#` 등)를 셸 이스케이프하는 버그가 있음.
+- 예: `Lyjguy123!@#` → `Lyjguy123\!@#`로 변환되어 React SPA 폼에 잘못된 값 입력.
+
+### 해결: `_cdp_direct_fill()` (executor/execute_scenario.py)
+- CDP `Input.dispatchKeyEvent`로 한 글자씩 keyDown/keyUp 전송.
+- React 등 SPA 프레임워크의 가상 DOM 이벤트 시스템과 호환됨.
+- 모든 `FILL` 액션이 이 함수를 통해 실행됨 (agent-browser CLI 우회).
+
+### 시도했으나 실패한 접근법
+- `nativeInputValueSetter` + `dispatchEvent`: React state 미반영.
+- `Input.insertText`: React 폼에서 state 업데이트 안 됨.
+- 위 방법들은 일반 HTML 폼에서는 동작하지만 React/SPA에서는 사용 불가.
+
+### 확장프로그램 OTP 읽기 (core/otp_reader.py)
+- CDP `Target.createTarget`으로 확장프로그램 팝업을 새 탭으로 열기.
+- `Runtime.evaluate`로 `document.body.innerText` 읽어 계정명 매칭 후 6자리 OTP 추출.
+- Authenticator 확장프로그램 ID: `bhghoamapcdpbohphigoooaddinpkbai`, 팝업: `view/popup.html`.
+- 시나리오 DSL: `READ_OTP "계정명" 변수명` → `{{변수명}}`으로 후속 FILL에 사용.
+
+## 9) 셀렉터 작성 가이드
+### 우선순위 (안정성 높은 순)
+1. `role=textbox`, `role=button` — Playwright ARIA role 셀렉터, UI 변경에 강함.
+2. `button[type=submit]`, `input[name=...]` — CSS 속성 셀렉터, ID보다 안정적.
+3. `#fixed-id` — 고정 ID가 있는 경우.
+4. `text=...` — 최후 수단. 부분 일치로 의도치 않은 요소 매칭 위험.
+
+### 주의사항
+- 동적 ID(`#awsui-input-0` 등)는 페이지 렌더링마다 변할 수 있어 사용 금지.
+- `text=로그인`처럼 짧은 텍스트는 헤딩/링크 등 여러 요소에 매칭될 수 있음.
+- `normalize_selector()`는 `[`, `>` 포함 시 CSS 셀렉터로 인식하여 `@` 접두사를 붙이지 않음.
+
+## 10) 변경 시 유의사항
 - 시나리오 액션을 추가/변경하면 아래를 함께 맞출 것:
   - `executor/execute_scenario.py`: `ALLOWED_ACTIONS`, 검증, CLI 변환
   - `executor/generate_scenario_claude.py`: 액션 검증/시스템 프롬프트
@@ -107,7 +140,7 @@
 - 클릭이 오버레이에 가릴 수 있어 실행기는 기본적으로 `ESC` 후 1회 재시도함.
 - `CLICK text=...`가 실패하면 실행기는 `find text <value> click` fallback을 1회 수행함.
 
-## 9) 실제 브라우저 환경 테스트 가이드
+## 11) 실제 브라우저 환경 테스트 가이드
 브라우저 기반:
 - 본 프로젝트의 실제 브라우저 테스트는 Chrome/Chromium + CDP(DevTools Protocol) 기반.
 - macOS 기본 경로: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
