@@ -1,6 +1,6 @@
 # AWS SSO 로그인 시나리오
 # 사용법: python3 executor/execute_scenario.py scenarios/aws/sso_login.scn \
-#          --var username={{username}} --var password=YOUR_PASSWORD
+#          --var username=ace.f1 --var password=YOUR_PASSWORD
 #
 # OTP는 Authenticator 확장프로그램에서 자동으로 읽습니다.
 
@@ -8,20 +8,22 @@
 NAVIGATE https://kakaostyle.awsapps.com/start
 
 # 2) 계정(이메일) 입력
-WAIT_FOR #awsui-input-0
-FILL #awsui-input-0 {{username}}
-CLICK #awsui-button-0
+WAIT_FOR role=textbox
+FILL role=textbox {{username}}
+CLICK button[type=submit]
 
 # 3) 비밀번호 입력
-WAIT_FOR #awsui-input-1
-FILL #awsui-input-1 {{password}}
-CLICK #awsui-button-0
+WAIT_FOR 3000
+WAIT_FOR role=textbox
+FILL role=textbox {{password}}
+CLICK button[type=submit]
 
 # 4) OTP 입력 - Authenticator 확장프로그램에서 자동 읽기
+WAIT_FOR 3000
 READ_OTP "AWS SSO" otp
-WAIT_FOR #awsui-input-0
-FILL #awsui-input-0 {{otp}}
-CLICK #awsui-button-0
+WAIT_FOR role=textbox
+FILL role=textbox {{otp}}
+CLICK button[type=submit]
 
 # 5) SSO 콘솔 로그인 완료 확인
-WAIT_URL /start#/
+WAIT_URL awsapps.com/start

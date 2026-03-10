@@ -353,24 +353,35 @@ class AgentBrowser:
     def fill(self, selector: str, value: str) -> None:
         hint = selector.lstrip("@")
         find_js = _make_find_js(hint)
-        # value 내의 따옴표 이스케이프
-        safe_value = value.replace("\\", "\\\\").replace("'", "\\'")
-        js = """
+        # 요소를 찾아 포커스 + 기존 값 클리어
+        focus_js = """
         (function() {
             const el = %s;
             if (!el) throw new Error('Element not found: %s');
             el.scrollIntoView({block: 'center'});
             el.focus();
-            const nativeSetter = Object.getOwnPropertyDescriptor(
-                window.HTMLInputElement.prototype, 'value'
-            ).set;
-            nativeSetter.call(el, '%s');
-            el.dispatchEvent(new Event('input', {bubbles: true}));
-            el.dispatchEvent(new Event('change', {bubbles: true}));
-            return 'filled';
+            el.select && el.select();
+            return 'focused';
         })()
-        """ % (find_js, hint, safe_value)
-        self._evaluate(js)
+        """ % (find_js, hint)
+        self._evaluate(focus_js)
+        # 기존 값 선택 후 삭제
+        self._send("Input.dispatchKeyEvent", {
+            "type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2,
+        })
+        self._send("Input.dispatchKeyEvent", {
+            "type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2,
+        })
+        self._send("Input.dispatchKeyEvent", {
+            "type": "keyDown", "key": "Backspace", "code": "Backspace",
+            "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
+        })
+        self._send("Input.dispatchKeyEvent", {
+            "type": "keyUp", "key": "Backspace", "code": "Backspace",
+            "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
+        })
+        # CDP Input.insertText로 값 입력 (특수문자 안전, React 호환)
+        self._send("Input.insertText", {"text": value})
         print(f"OK: filled {selector} with '{value}'")
 
     def wait_for(self, selector: str) -> None:

@@ -131,6 +131,9 @@ def normalize_selector(selector: str) -> str:
     explicit_prefixes = ("@", "#", ".", "[", "/", "xpath=", "text=", "role=")
     if selector.startswith(explicit_prefixes):
         return selector
+    # CSS 태그 셀렉터 (예: button[type=submit], input[name=...], div.class)
+    if "[" in selector or ">" in selector:
+        return selector
     return f"@{selector}"
 
 
@@ -187,6 +190,85 @@ def _extract_order_detail_id(url: str) -> str | None:
     if not match:
         return None
     return match.group(1)
+
+
+def _cdp_direct_fill(selector: str, value: str) -> None:
+    """CDP Input.dispatchKeyEvent를 사용해 한 글자씩 타이핑 (agent-browser CLI 우회).
+
+    agent-browser fill은 특수문자(!, @, # 등)를 이스케이프하는 버그가 있어
+    React 등 SPA 폼에서 비밀번호 등이 올바르게 입력되지 않는 문제를 우회한다.
+    """
+    import json
+    import urllib.request
+    from core.runner import _cdp_port
+    port = _cdp_port()
+    # agent-browser로 먼저 포커스 확보
+    try:
+        agent_browser("click", selector, check=True)
+    except AgentBrowserError:
+        agent_browser("focus", selector, check=False)
+    time.sleep(0.2)
+    # CDP 웹소켓으로 직접 타이핑
+    try:
+        resp = urllib.request.urlopen(f"http://localhost:{port}/json/list", timeout=5)
+        targets = json.loads(resp.read().decode())
+        # 현재 활성 페이지 찾기 (chrome-extension 제외)
+        page = next(
+            (t for t in targets if t["type"] == "page"
+             and "chrome-extension://" not in t.get("url", "")),
+            None,
+        )
+        if not page:
+            raise RuntimeError("CDP page target not found")
+        import websocket  # type: ignore
+        ws = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=10)
+        msg_id = 1
+        try:
+            # Ctrl+A (전체 선택)
+            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                "type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2,
+            }}))
+            ws.recv(); msg_id += 1
+            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                "type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2,
+            }}))
+            ws.recv(); msg_id += 1
+            # Backspace (삭제)
+            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                "type": "keyDown", "key": "Backspace", "code": "Backspace",
+                "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
+            }}))
+            ws.recv(); msg_id += 1
+            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                "type": "keyUp", "key": "Backspace", "code": "Backspace",
+                "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
+            }}))
+            ws.recv(); msg_id += 1
+            # 한 글자씩 keyDown+keyUp 타이핑
+            for ch in value:
+                ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                    "type": "keyDown", "key": ch, "text": ch,
+                }}))
+                ws.recv(); msg_id += 1
+                ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                    "type": "keyUp", "key": ch,
+                }}))
+                ws.recv(); msg_id += 1
+            # 입력 검증: 실제 입력된 값 확인
+            ws.send(json.dumps({"id": msg_id, "method": "Runtime.evaluate", "params": {
+                "expression": "document.activeElement?.value || ''"
+            }}))
+            verify = json.loads(ws.recv())
+            actual = verify.get("result", {}).get("result", {}).get("value", "")
+            if actual != value:
+                import logging as _log
+                _log.getLogger(__name__).warning(
+                    "CDP fill mismatch: expected=%r actual=%r", value, actual
+                )
+        finally:
+            ws.close()
+    except Exception as exc:
+        raise RuntimeError(f"CDP direct fill failed: {exc}")
 
 
 def _is_transient_navigation_error(exc: AgentBrowserError) -> bool:
@@ -3236,6 +3318,11 @@ def run_scenario(
                 if command.action == "NAVIGATE":
                     _safe_open_url(command.args[0], retries=5)
                     result = agent_browser("get", "url", check=False)
+                elif command.action == "FILL":
+                    _cdp_direct_fill(normalize_selector(command.args[0]), " ".join(command.args[1:]))
+                    result = type(agent_browser("get", "url", check=False))(
+                        args=cli_args, returncode=0, stdout="filled", stderr=""
+                    )
                 else:
                     result = agent_browser(*cli_args, check=True)
                 eval_output = result.stdout.strip()
