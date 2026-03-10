@@ -13,7 +13,7 @@ WAIT_URL /checkout/orders/
 WAIT_FOR 1200
 
 # 3) 교환하기 클릭 → 교환 요청 페이지 진입
-EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const btns=[...document.querySelectorAll('button,[role=button],a')]; const leaf=btns.find(el=>norm(el.textContent)==='교환하기' || norm(el.textContent)==='교환신청'); if(!leaf) throw new Error('no_exchange_action'); leaf.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(leaf.textContent)}`; })()"
+EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const btns=[...document.querySelectorAll('button,[role=button],a,div.btn')]; const leaf=btns.find(el=>norm(el.textContent)==='교환하기' || norm(el.textContent)==='교환신청'); if(!leaf) throw new Error('no_exchange_action'); leaf.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(leaf.textContent)}`; })()"
 WAIT_URL /request-exchange
 WAIT_FOR 700
 

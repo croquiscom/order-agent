@@ -130,7 +130,18 @@
 - `text=로그인`처럼 짧은 텍스트는 헤딩/링크 등 여러 요소에 매칭될 수 있음.
 - `normalize_selector()`는 `[`, `>` 포함 시 CSS 셀렉터로 인식하여 `@` 접두사를 붙이지 않음.
 
-## 10) 변경 시 유의사항
+## 10) 시나리오 작업 시 필수 참조 문서
+- **시나리오 수정/생성/디버깅 전에 반드시 아래 문서를 먼저 읽을 것:**
+  - `docs/input_interaction_patterns.md`: 클레임(교환/반품/취소) 플로우의 입력 UI 패턴, 셀렉터 전략, 결제 패턴, URL 분기 처리, 트러블슈팅
+  - `docs/exchange_stabilization_plan.md`: 교환 시나리오 안정화 우선순위 및 완료 조건
+- **기준 시나리오 (레퍼런스):**
+  - 교환: `alpha_claim_exchange.scn` — 파생 시나리오(`_by_order`, `_policy_blocked`, `_input_option`)는 이 패턴과 동기화 유지
+  - 반품: `alpha_claim_return.scn`
+  - 취소: `alpha_claim_cancel.scn`
+- 파생 시나리오에 EVAL을 직접 작성하지 말고, 기준 시나리오의 검증된 EVAL을 복사하여 사용할 것
+- 셀렉터 범위 변경 시(예: `querySelectorAll` 대상 태그 축소) 반드시 실제 DOM 구조(`div.btn` 등)와 대조 확인
+
+## 11) 변경 시 유의사항
 - 시나리오 액션을 추가/변경하면 아래를 함께 맞출 것:
   - `executor/execute_scenario.py`: `ALLOWED_ACTIONS`, 검증, CLI 변환
   - `executor/generate_scenario_claude.py`: 액션 검증/시스템 프롬프트
@@ -140,7 +151,7 @@
 - 클릭이 오버레이에 가릴 수 있어 실행기는 기본적으로 `ESC` 후 1회 재시도함.
 - `CLICK text=...`가 실패하면 실행기는 `find text <value> click` fallback을 1회 수행함.
 
-## 11) 실제 브라우저 환경 테스트 가이드
+## 12) 실제 브라우저 환경 테스트 가이드
 브라우저 기반:
 - 본 프로젝트의 실제 브라우저 테스트는 Chrome/Chromium + CDP(DevTools Protocol) 기반.
 - macOS 기본 경로: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`
