@@ -107,7 +107,7 @@
 | 패턴 | 탐지 기준 | 자동화 처리 |
 |---|---|---|
 | 포인트 전액사용 | URL에 `/order-sheets/exchange` + "포인트 전액사용" 버튼 존재 | `_apply_full_points_on_exchange_cost_sheet()` |
-| 0원 결제 | "0원 결제하기" 또는 "0원 구매하기" 텍스트 버튼 | URL 조건 분기 EVAL로 `/order-sheets/exchange`일 때만 클릭 |
+| 0원 결제 | "0원 결제하기" 또는 "0원 구매하기" 텍스트 버튼 | **`button` 태그 우선 탐색** → fallback으로 `[role=button],div,a,span`. `querySelectorAll('button,...,div')` 혼합 사용 금지 — DOM 순서상 래퍼 `div`가 먼저 매칭되어 클릭 미동작 |
 | 추가비용 없는 교환 | SUBMIT 후 `/order-sheets/exchange`를 거치지 않음 | URL 분기로 결제 단계 전체 스킵 → 완료/주문상세 페이지로 직행 |
 | 유료 결제 차단 | 결제 금액 > 0 + 포인트 부족 | `CLAIM_NOT_AVAILABLE` 리포트 후 안전 종결 |
 
@@ -139,6 +139,11 @@
 - **증상**: 같은 드롭다운을 반복 클릭하며 진전 없음
 - **원인**: 제외 필터 미적용, 또는 선택 후 상태 변화 미감지
 - **해결**: `_needs_option_selection()` 재확인으로 조기 탈출, `max_option_levels=6` 상한
+
+### 0원 결제 버튼 클릭 미동작 (래퍼 div 오매칭)
+- **증상**: "0원 결제하기" EVAL이 `zero_pay_clicked`를 반환하지만 페이지 전환 안 됨
+- **원인**: `querySelectorAll('button,[role=button],div,a,span')`이 DOM 순서대로 반환하므로 실제 `<button>` 위의 래퍼 `<div>`가 먼저 매칭됨. 래퍼 클릭은 이벤트 핸들러 미연결
+- **해결**: `button` 태그를 별도 쿼리로 우선 탐색, 없을 때만 `[role=button],div,a,span` fallback. 혼합 셀렉터(`'button,...,div,...'`) 사용 금지
 
 ### React 이벤트 미전달
 - **증상**: DOM 클릭 이벤트가 React 상태를 업데이트하지 않음
