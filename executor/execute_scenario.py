@@ -3025,10 +3025,18 @@ def run_scenario(
                         time.sleep(0.8)
 
                         # 로그인 페이지를 벗어나지 않고 동일 화면에서 1~2회만 시도
+                        alpha_user = os.environ.get("ALPHA_USERNAME")
+                        alpha_pass = os.environ.get("ALPHA_PASSWORD")
+                        if not alpha_user or not alpha_pass:
+                            raise RuntimeError(
+                                "ENSURE_LOGIN_ALPHA failed: ALPHA_USERNAME / ALPHA_PASSWORD 환경변수가 설정되지 않았습니다. "
+                                ".env.example을 참고하여 .env 파일을 생성하세요."
+                            )
+
                         login_ok = False
                         for attempt in range(1, 3):
-                            agent_browser("fill", "[placeholder*='abc@email.com']", "{{username}}", check=True)
-                            agent_browser("fill", "[placeholder*='영문, 숫자, 특수문자 포함 8자 이상']", "{{password}}", check=True)
+                            agent_browser("fill", "[placeholder*='abc@email.com']", alpha_user, check=True)
+                            agent_browser("fill", "[placeholder*='영문, 숫자, 특수문자 포함 8자 이상']", alpha_pass, check=True)
                             login_clicked = False
                             login_btn = agent_browser("find", "role", "button", "click", "--name", "로그인", check=False)
                             if login_btn.returncode == 0:
@@ -3587,6 +3595,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass  # python-dotenv 미설치 시 환경변수 직접 설정 필요
+
     args = parse_args()
     scenario_paths: list[Path] = []
     for s in args.scenario:

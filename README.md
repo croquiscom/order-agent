@@ -73,9 +73,18 @@ AWS SSO 등 OTP가 필요한 시나리오를 실행하려면 Chrome에 Authentic
 ### alpha 환경 로그인 (`ENSURE_LOGIN_ALPHA`)
 
 `ENSURE_LOGIN_ALPHA`는 시나리오 내에서 alpha.zigzag.kr에 이미 로그인되어 있는지 CDP로 확인하는 액션이다.
-로그인 상태가 아닌 경우 `https://alpha.zigzag.kr/login` 으로 이동하여 로그인을 유도한다.
+로그인 상태가 아닌 경우 자동으로 로그인 페이지로 이동하여 환경변수의 자격증명으로 로그인한다.
 
-시나리오 파일 상단에 `ENSURE_LOGIN_ALPHA`를 두고 이후 스텝에서 자격증명을 입력하는 방식으로 구성한다.
+**사전 설정:**
+1. `.env.example`을 복사하여 `.env` 파일 생성
+2. `ALPHA_USERNAME`과 `ALPHA_PASSWORD`에 실제 테스트 계정 정보 입력
+
+```bash
+cp .env.example .env
+# .env 파일을 편집하여 실제 계정 정보 입력
+```
+
+환경변수가 설정되지 않은 경우 `ENSURE_LOGIN_ALPHA` 실행 시 에러가 발생한다.
 
 ### 테스트 상품 ID
 - 스토어배송: `100136725`
@@ -94,6 +103,8 @@ AWS SSO 등 OTP가 필요한 시나리오를 실행하려면 Chrome에 Authentic
 
 | 환경변수 | 기본값 | 설명 |
 |---|---|---|
+| `ALPHA_USERNAME` | (필수) | alpha.zigzag.kr 테스트 계정 이메일 |
+| `ALPHA_PASSWORD` | (필수) | alpha.zigzag.kr 테스트 계정 비밀번호 |
 | `AGENT_BROWSER_AUTO_CONNECT` | `1` | CDP 포트에 자동 attach 시도 |
 | `AGENT_BROWSER_EXECUTABLE_PATH` | (자동탐색) | Chrome 실행 파일 경로 수동 지정 |
 | `ORDER_AGENT_CDP_PORT` | `9222` | CDP 포트 번호 |
