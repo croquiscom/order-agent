@@ -189,7 +189,7 @@ class AgentBrowser:
             "--no-default-browser-check",
             f"--user-data-dir={self._user_data_dir}",
         ]
-        if not _env_flag("ORDER_AGENT_BROWSER_ENABLE_EXTENSIONS", default=False):
+        if _env_flag("ORDER_AGENT_BROWSER_DISABLE_EXTENSIONS", default=False):
             launch_args.extend(
                 [
                     "--disable-extensions",

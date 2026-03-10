@@ -130,7 +130,7 @@ def _launch_browser_for_cdp() -> bool:
         "--no-default-browser-check",
         f"--user-data-dir={profile_dir}",
     ]
-    if not _is_truthy(os.getenv("ORDER_AGENT_BROWSER_ENABLE_EXTENSIONS")):
+    if _is_truthy(os.getenv("ORDER_AGENT_BROWSER_DISABLE_EXTENSIONS")):
         launch_args.extend(
             [
                 "--disable-extensions",
