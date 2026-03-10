@@ -1912,7 +1912,7 @@ def _submit_exchange_request(reason_text: str) -> str:
             "if(r.width<100||r.height<30||r.height>80) return false;"
             "return !!el.querySelector('svg');"
             "});"
-            "if(hasInput||headers.length>0) return 'input_type:inputs='+hasInput+',dropdowns='+headers.length;"
+            "if(hasInput) return 'input_type:inputs='+hasInput+',dropdowns='+headers.length;"
             "return 'not_input_type';"
             "})()"
         )
