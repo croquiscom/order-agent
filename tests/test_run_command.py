@@ -11,7 +11,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from services.zigzag.scripts.execute_scenario import (
+from executor.execute_scenario import (
     _role_button_fallback_click_args,
     _text_fallback_click_args,
     ScenarioCommand,
@@ -165,10 +165,10 @@ class TestDryRun:
     def test_dry_run_does_not_call_browser(self):
         scn_path = (
             Path(__file__).resolve().parents[1]
-            / "services" / "zigzag" / "scenarios" / "alpha_direct_buy_complete_normal.scn"
+            / "scenarios" / "zigzag" / "alpha_direct_buy_complete_normal.scn"
         )
         with patch.dict(os.environ, {"ALLOW_REAL_PAYMENT": "1"}):
-            with patch("services.zigzag.scripts.execute_scenario.agent_browser") as mock_browser:
+            with patch("executor.execute_scenario.agent_browser") as mock_browser:
                 exit_code = run_scenario(scn_path, dry_run=True, continue_on_error=False)
 
         mock_browser.assert_not_called()

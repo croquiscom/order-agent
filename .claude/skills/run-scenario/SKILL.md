@@ -19,14 +19,14 @@ $ARGUMENTS를 파싱하여 아래 규칙으로 실행한다:
 
 1. 인자가 없으면 기본 시나리오를 실행:
    ```
-   python3 services/zigzag/scripts/execute_scenario.py
+   python3 executor/execute_scenario.py
    ```
 
 2. `.scn` 파일명이 하나 이상이면 순차 실행:
    ```
-   python3 services/zigzag/scripts/execute_scenario.py <file1.scn> [file2.scn]
+   python3 executor/execute_scenario.py <file1.scn> [file2.scn]
    ```
-   - 파일명만 주어졌으면 `services/zigzag/scenarios/` 에서 탐색
+   - 파일명만 주어졌으면 `scenarios/zigzag/` 에서 탐색
 
 3. 키워드로 시나리오 그룹 지정 가능:
    - `cancel`: 취소 클레임 (기존 주문 대상)

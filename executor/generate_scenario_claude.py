@@ -10,7 +10,7 @@ from pathlib import Path
 
 import anthropic
 
-SCENARIO_DIR = Path(__file__).resolve().parents[1] / "scenarios"
+SCENARIO_DIR = Path(__file__).resolve().parents[1] / "scenarios" / "zigzag"
 DEFAULT_OUTPUT = SCENARIO_DIR / "generated_zigzag.scn"
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
 ALLOWED_ACTIONS = {"NAVIGATE", "CLICK", "FILL", "WAIT_FOR", "CHECK"}

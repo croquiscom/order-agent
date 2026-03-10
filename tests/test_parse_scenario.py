@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from services.zigzag.scripts.execute_scenario import parse_scenario, ScenarioCommand
+from executor.execute_scenario import parse_scenario, ScenarioCommand
 
 
 def _write_scn(content: str) -> Path:
@@ -71,9 +71,8 @@ def test_parse_unknown_action_raises():
 def test_parse_real_scenario_file():
     scn_path = (
         Path(__file__).resolve().parents[1]
-        / "services"
-        / "zigzag"
         / "scenarios"
+        / "zigzag"
         / "alpha_direct_buy_complete_normal.scn"
     )
     commands = parse_scenario(scn_path)

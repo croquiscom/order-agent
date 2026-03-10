@@ -16,14 +16,14 @@ from datetime import datetime
 from pathlib import Path
 import time
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from core.logger import setup_logger
 from core.runner import AgentBrowserError, agent_browser
 
-DEFAULT_SCENARIO = Path(__file__).resolve().parents[1] / "scenarios" / "alpha_direct_buy_complete_normal.scn"
+DEFAULT_SCENARIO = REPO_ROOT / "scenarios" / "zigzag" / "alpha_direct_buy_complete_normal.scn"
 ALLOWED_ACTIONS = {
     "NAVIGATE",
     "CLICK",
@@ -54,6 +54,7 @@ ALLOWED_ACTIONS = {
     "PRINT_ACTIVE_MODAL",
     "CHECK_PAYMENT_RESULT",
     "EXPECT_FAIL",
+    "READ_OTP",
 }
 BLOCKED_CLICK_TARGETS = {"confirm_payment"}
 ORDER_SHEET_ID_PATTERN = re.compile(r"/checkout/order-sheets/([a-f0-9-]+)")
@@ -113,6 +114,8 @@ def validate_command(command: ScenarioCommand) -> None:
         raise ValueError(f"line {line_no}: {action} requires no arguments")
     if action == "EXPECT_FAIL" and len(args) > 1:
         raise ValueError(f"line {line_no}: EXPECT_FAIL takes 0 or 1 argument (optional error code pattern)")
+    if action == "READ_OTP" and not (1 <= len(args) <= 2):
+        raise ValueError(f"line {line_no}: READ_OTP requires 1-2 arguments: <account_name> [var_name]")
     if action == "FILL" and len(args) < 2:
         raise ValueError(f"line {line_no}: FILL requires field_id and value")
     if action == "CLICK" and args and args[0] in BLOCKED_CLICK_TARGETS:
@@ -2822,6 +2825,7 @@ def run_scenario(
                 "PRINT_ACTIVE_MODAL",
                 "CHECK_PAYMENT_RESULT",
                 "EXPECT_FAIL",
+                "READ_OTP",
             } else to_agent_browser_args(command)
             logger.info("[STEP %s/%s] line %s: %s", idx, len(commands), command.line_no, " ".join([command.action, *command.args]))
 
@@ -2858,11 +2862,23 @@ def run_scenario(
                     logger.info("[DRY-RUN] SUBMIT_RETURN_REQUEST '%s'", command.args[0])
                 elif command.action == "SUBMIT_EXCHANGE_REQUEST":
                     logger.info("[DRY-RUN] SUBMIT_EXCHANGE_REQUEST '%s'", command.args[0])
+                elif command.action == "READ_OTP":
+                    var_name = command.args[1] if len(command.args) > 1 else "otp"
+                    logger.info("[DRY-RUN] READ_OTP '%s' -> {{%s}}", command.args[0], var_name)
                 else:
                     logger.info("[DRY-RUN] agent-browser %s", " ".join(cli_args))
                 continue
 
             try:
+                if command.action == "READ_OTP":
+                    from core.otp_reader import read_otp
+                    account_name = command.args[0]
+                    var_name = command.args[1] if len(command.args) > 1 else "otp"
+                    otp_code = read_otp(account_name)
+                    _vars[var_name.lower()] = otp_code
+                    logger.info("READ_OTP: account='%s' -> {{%s}} = %s", account_name, var_name, otp_code)
+                    continue
+
                 if command.action != "ENSURE_LOGIN_ALPHA" and _page_has_upstream_error():
                     logger.warning("Detected upstream error before line %s. Trying in-place recovery.", command.line_no)
                     if not _recover_from_upstream_error(max_retries=3):
