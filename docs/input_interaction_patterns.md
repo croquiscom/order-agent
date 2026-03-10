@@ -107,7 +107,8 @@
 | 패턴 | 탐지 기준 | 자동화 처리 |
 |---|---|---|
 | 포인트 전액사용 | URL에 `/order-sheets/exchange` + "포인트 전액사용" 버튼 존재 | `_apply_full_points_on_exchange_cost_sheet()` |
-| 0원 결제 | "0원 결제하기" 또는 "0원 구매하기" 텍스트 버튼 | 시나리오에서 `CLICK "text=0원 결제하기"` |
+| 0원 결제 | "0원 결제하기" 또는 "0원 구매하기" 텍스트 버튼 | URL 조건 분기 EVAL로 `/order-sheets/exchange`일 때만 클릭 |
+| 추가비용 없는 교환 | SUBMIT 후 `/order-sheets/exchange`를 거치지 않음 | URL 분기로 결제 단계 전체 스킵 → 완료/주문상세 페이지로 직행 |
 | 유료 결제 차단 | 결제 금액 > 0 + 포인트 부족 | `CLAIM_NOT_AVAILABLE` 리포트 후 안전 종결 |
 
 ---
