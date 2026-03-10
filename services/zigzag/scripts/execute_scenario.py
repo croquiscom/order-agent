@@ -277,7 +277,7 @@ def _normalize_text(s: str) -> str:
 
 
 def _fuzzy_find_in_snapshot(
-    target_text: str, snapshot_out: str, threshold: float = 0.55
+    target_text: str, snapshot_out: str, threshold: float = 0.65
 ) -> list[tuple[str, str, str, float]]:
     """Find snapshot elements by fuzzy text matching.
 
@@ -1415,6 +1415,46 @@ def _submit_exchange_request(reason_text: str) -> str:
     def _label_norm(s: str) -> str:
         return (s or "").replace(" ", "").replace("\n", "").replace("\t", "").strip()
 
+    def _find_option_trigger_ref(nodes: list[tuple[str, str, str]]) -> str | None:
+        """Snapshot 노드에서 옵션 선택 트리거 ref를 찾는다 (배송메모 영역 제외).
+
+        Phase 1: 정확한 옵션 선택 텍스트 매칭
+        Phase 2: '옵션' 포함 버튼 탐색
+        배송메모 관련 노드는 모든 단계에서 제외된다.
+        """
+        memo_refs: set[str] = set()
+
+        # Pass 1: 배송메모 관련 ref 수집
+        for _role, label, ref in nodes:
+            n = _label_norm(label)
+            if "배송메모" in n:
+                memo_refs.add(ref)
+
+        # Pass 2: 정확한 옵션 선택 텍스트 매칭
+        option_keywords = ("옵션을선택해주세요", "교환옵션을선택해주세요")
+        for _role, label, ref in nodes:
+            if ref in memo_refs:
+                continue
+            n = _label_norm(label)
+            if "배송메모" in n:
+                continue
+            if any(kw in n for kw in option_keywords):
+                return ref
+
+        # Pass 3: "옵션" 포함 버튼 (배송메모 제외)
+        for role, label, ref in nodes:
+            if ref in memo_refs:
+                continue
+            if role != "button":
+                continue
+            n = _label_norm(label)
+            if "배송메모" in n:
+                continue
+            if "옵션" in n and "선택완료" not in n and "교환요청" not in n:
+                return ref
+
+        return None
+
     def _try_select_exchange_option_by_snapshot() -> bool:
         nodes = _snapshot_nodes()
 
@@ -1649,8 +1689,18 @@ def _submit_exchange_request(reason_text: str) -> str:
     )
     option_needs_selection_js = (
         "(function(){"
-        "const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,'');"
-        "return t.includes('옵션을선택해주세요');"
+        "const norm=s=>(s||'').replace(/\\s+/g,'');"
+        "const els=[...document.querySelectorAll('div,span,p,label,button')];"
+        "const match=els.find(el=>{"
+        "const t=norm(el.textContent||'');"
+        "if(!t.includes('옵션을선택해주세요')) return false;"
+        "if(t.startsWith('배송메모')) return false;"
+        "const p=el.closest('section,div,form')||el.parentElement;"
+        "const pt=norm((p&&p.textContent)||'');"
+        "if(pt.startsWith('배송메모')) return false;"
+        "return true;"
+        "});"
+        "return !!match;"
         "})()"
     )
     option_modal_opened_js = (
@@ -1686,74 +1736,53 @@ def _submit_exchange_request(reason_text: str) -> str:
         if _is_option_modal_open():
             return True
 
-        # 1) snapshot ref 우선
-        for txt in (
-            "교환 옵션을 선택해 주세요",
-            "교환옵션을선택해주세요",
-            "옵션을 선택해 주세요",
-            "옵션을 선택해주세요",
-        ):
+        # Phase 1: Snapshot 기반 — 옵션 트리거를 구조적으로 식별 (배송메모 제외)
+        nodes = _snapshot_nodes()
+        trigger_ref = _find_option_trigger_ref(nodes)
+        if trigger_ref:
             try:
-                _click_by_snapshot_text(txt)
+                _click_ref_with_escape_retry(trigger_ref)
                 time.sleep(0.35)
                 if _is_option_modal_open():
                     return True
             except Exception:
                 pass
 
-        # 2) find text 클릭
-        for txt in ("교환 옵션을 선택해 주세요", "옵션을 선택해 주세요", "옵션을 선택해주세요"):
-            if _click_text_fallback(txt):
-                time.sleep(0.35)
-                if _is_option_modal_open():
-                    return True
-
-        # 3) JS로 텍스트 노드/컨테이너 직접 클릭
+        # Phase 2: JS fallback — DOM에서 직접 옵션 요소를 찾아 클릭 (배송메모 제외, 면적 최소 요소 우선)
         js = (
             "(function(){"
             "const norm=s=>(s||'').replace(/\\s+/g,'').trim();"
-            "const clickAt=(x,y)=>{"
-            "const el=document.elementFromPoint(x,y);"
-            "if(!el) return false;"
-            "['pointerdown','mousedown','mouseup','click'].forEach(tp=>el.dispatchEvent(new MouseEvent(tp,{bubbles:true,cancelable:true,view:window,clientX:x,clientY:y})));"
-            "return true;"
-            "};"
-            "const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);"
-            "let n=null;"
-            "while((n=walker.nextNode())){"
-            "const t=norm(n.textContent||'');"
-            "if(!(t==='옵션을선택해주세요.'||t==='옵션을선택해주세요'||t.includes('옵션을선택해주세요'))) continue;"
-            "let r=null;"
-            "try{const range=document.createRange();range.selectNodeContents(n.parentElement||n);r=range.getBoundingClientRect();}catch(e){}"
-            "if(!r||r.width<2||r.height<2) continue;"
-            "const x=Math.round(r.left + Math.min(r.width*0.6, r.width-2));"
-            "const y=Math.round(r.top + r.height/2);"
-            "const host=n.parentElement||document.body;"
-            "try{host.scrollIntoView({block:'center'});}catch(e){}"
-            "if(clickAt(x,y)) return 'clicked_text_node';"
-            "}"
-            "const txt=[...document.querySelectorAll('div,span,p,label,button')].find(el=>norm(el.textContent||'').includes('옵션을선택해주세요'));"
-            "if(txt){"
-            "const cands=[txt,txt.parentElement,txt.closest('button,[role=\"button\"],label,li,section,article,div')].filter(Boolean);"
-            "for(const el of cands){"
-            "try{el.scrollIntoView({block:'center'});}catch(e){}"
-            "try{['pointerdown','mousedown','mouseup','click'].forEach(tp=>el.dispatchEvent(new MouseEvent(tp,{bubbles:true,cancelable:true,view:window}))); return 'clicked_container';}catch(e){}"
-            "}"
-            "}"
-            "const anchor=[...document.querySelectorAll('*')].find(el=>norm(el.textContent||'').includes('교환옵션을선택해주세요')||norm(el.textContent||'').includes('옵션을선택해주세요'));"
+            "const clickEl=(el)=>{try{el.scrollIntoView({block:'center'});}catch(e){}"
+            "['pointerdown','mousedown','mouseup','click'].forEach(tp=>el.dispatchEvent(new MouseEvent(tp,{bubbles:true,cancelable:true,view:window})));return true;};"
+            "const els=[...document.querySelectorAll('div,span,p,label,button,[role=\"button\"]')];"
+            "const candidates=els.filter(el=>{"
+            "const t=norm(el.textContent||'');"
+            "if(!(t.includes('옵션을선택해주세요')||t.includes('교환옵션을선택해주세요'))) return false;"
+            "if(t.includes('배송메모')) return false;"
+            "const p=el.closest('section,div,form')||el.parentElement;"
+            "if(p&&norm(p.textContent||'').startsWith('배송메모')) return false;"
+            "const r=el.getBoundingClientRect();const st=getComputedStyle(el);"
+            "return st.display!=='none'&&st.visibility!=='hidden'&&r.width>0&&r.height>0;"
+            "});"
+            "const optEl=candidates.sort((a,b)=>{const ra=a.getBoundingClientRect();const rb=b.getBoundingClientRect();return(ra.width*ra.height)-(rb.width*rb.height);})[0];"
+            "if(optEl){clickEl(optEl);return 'clicked_option_element';}"
+            "const anchor=els.find(el=>{"
+            "const t=norm(el.textContent||'');"
+            "return (t.includes('교환옵션')||t.includes('교환할상품'))&&!t.includes('배송메모');"
+            "});"
             "if(anchor){"
             "const root=anchor.closest('section,article,li,div,form')||anchor.parentElement||document.body;"
             "const ctl=[...root.querySelectorAll('button,[role=\"button\"],select,input,[tabindex]')].find(el=>{"
-            "const t=norm(el.textContent||'')||norm(el.getAttribute('aria-label')||'')||norm(el.getAttribute('placeholder')||'');"
+            "const t=norm(el.textContent||'')||norm(el.getAttribute('aria-label')||'');"
             "if(!t) return false;"
-            "if(t.includes('배송지변경')||t.includes('교환요청')||t.includes('선택완료')||t.includes('취소')) return false;"
+            "if(t.includes('배송메모')||t.includes('배송지변경')||t.includes('교환요청')||t.includes('선택완료')||t.includes('취소')) return false;"
             "if(el.tagName==='INPUT'&&el.type==='file') return false;"
             "const r=el.getBoundingClientRect();const st=getComputedStyle(el);"
             "return st.display!=='none'&&st.visibility!=='hidden'&&r.width>0&&r.height>0;"
             "});"
-            "if(ctl){try{ctl.scrollIntoView({block:'center'});}catch(e){} ['pointerdown','mousedown','mouseup','click'].forEach(tp=>ctl.dispatchEvent(new MouseEvent(tp,{bubbles:true,cancelable:true,view:window}))); return 'clicked_exchange_control';}"
+            "if(ctl){clickEl(ctl);return 'clicked_exchange_control';}"
             "}"
-            "return 'no_selection_area';"
+            "return 'no_option_trigger';"
             "})()"
         )
         agent_browser("eval", js, check=False)
@@ -1851,6 +1880,263 @@ def _submit_exchange_request(reason_text: str) -> str:
         out = agent_browser("eval", js, check=False).stdout or ""
         return "done_clicked" in out
 
+    def _handle_input_type_option() -> bool:
+        """입력형 옵션 모달 처리: 텍스트 입력 + 드롭다운(색상/사이즈 등) 선택.
+
+        검증된 DOM 구조 패턴:
+        - 드롭다운 헤더: SVG chevron 포함 div (짧은 텍스트, 적절한 크기)
+        - 옵션 리스트: .list-container 클래스 (헤더 클릭 시 나타남)
+        - 색상 선택 후 사이즈가 자동으로 열림 → .list-container 반복 처리
+        - 品절 옵션 제외, PointerEvent + elementFromPoint 패턴 사용
+        Returns True if the input-type option was detected and handled.
+        """
+        detect_js = (
+            "(function(){"
+            "var norm=function(s){return(s||'').replace(/\\s+/g,'').trim();};"
+            "var body=norm((document.body&&document.body.innerText)||'');"
+            "if(!body.includes('\uad50\ud658\uc635\uc158')) return 'no_exchange_option_modal';"
+            "var inputs=[].slice.call(document.querySelectorAll('input[type=\"text\"],textarea'));"
+            "var hasInput=inputs.some(function(el){"
+            "var ph=norm(el.getAttribute('placeholder')||'');"
+            "return ph.includes('\uc785\ub825\ud574\uc8fc\uc138\uc694');"
+            "});"
+            "var excluded=['주문교환','주문반품','주문취소','교환신청','반품신청','취소신청',"
+            "'교환요청','반품요청','취소요청','배송메모','배송메모를','사유선택','사유를선택해주세요',"
+            "'수거방법','수거방법선택','교환사유','반품사유','취소사유','사진첨부'];"
+            "var headers=[].slice.call(document.querySelectorAll('div')).filter(function(el){"
+            "var t=norm(el.textContent||'');"
+            "if(t.length<1||t.length>6) return false;"
+            "if(excluded.indexOf(t)>=0) return false;"
+            "var r=el.getBoundingClientRect();"
+            "if(r.top<60) return false;"
+            "if(r.width<100||r.height<30||r.height>80) return false;"
+            "return !!el.querySelector('svg');"
+            "});"
+            "if(hasInput||headers.length>0) return 'input_type:inputs='+hasInput+',dropdowns='+headers.length;"
+            "return 'not_input_type';"
+            "})()"
+        )
+        detect_out = (agent_browser("eval", detect_js, check=False).stdout or "").strip()
+        if "input_type:" not in detect_out:
+            return False
+
+        import logging as _logging
+        _log = _logging.getLogger("order-agent-exec")
+        _log.info("Input-type option modal detected: %s", detect_out)
+
+        # PointerEvent 클릭 헬퍼 JS — elementFromPoint 사용으로 React 이벤트 정확 전달
+        _ptr_click_js = (
+            "__TARGET__.scrollIntoView({block:'center'});"
+            "var __r=__TARGET__.getBoundingClientRect();"
+            "var __cx=__r.left+__r.width/2,__cy=__r.top+__r.height/2;"
+            "var __hit=document.elementFromPoint(__cx,__cy)||__TARGET__;"
+            "['pointerdown','pointerup','mousedown','mouseup','click'].forEach(function(tp){"
+            "__hit.dispatchEvent(new PointerEvent(tp,{bubbles:true,cancelable:true,view:window,"
+            "clientX:__cx,clientY:__cy,pointerId:1,pointerType:'mouse'}));"
+            "});"
+        )
+
+        # 0) 옵션 피커 트리거("교환옵션을선택해주세요")가 닫혀있으면 먼저 열기
+        #    클릭 시 색상/사이즈 드롭다운이 인라인 확장됨 (토글이므로 이미 열려있으면 스킵)
+        _open_option_picker_js = (
+            "(function(){"
+            "var norm=function(s){return(s||'').replace(/\\s+/g,'').trim();};"
+            # 이미 색상/사이즈 드롭다운이 보이면 피커가 열린 상태 → 스킵
+            "var ddHeaders=[].slice.call(document.querySelectorAll('div')).filter(function(el){"
+            "var t=norm(el.textContent||'');"
+            "return (t==='\uc0c9\uc0c1'||t==='\uc0ac\uc774\uc988')&&el.querySelector('svg')&&el.getBoundingClientRect().height>30;"
+            "});"
+            "if(ddHeaders.length>0) return 'already_open:dropdowns='+ddHeaders.length;"
+            # 피커 트리거를 찾아 클릭
+            "var els=[].slice.call(document.querySelectorAll('div'));"
+            "var target=null;"
+            "for(var i=0;i<els.length;i++){"
+            "var t=norm(els[i].textContent||'');"
+            "if(t!=='\uad50\ud658\uc635\uc158\uc744\uc120\ud0dd\ud574\uc8fc\uc138\uc694'"
+            "&&t!=='\uc635\uc158\uc744\uc120\ud0dd\ud574\uc8fc\uc138\uc694'"
+            "&&t!=='\uc635\uc158\uc744\uc120\ud0dd\ud574\uc8fc\uc138\uc694.') continue;"
+            "var r=els[i].getBoundingClientRect();"
+            "if(r.height<25||r.height>60||r.width<150) continue;"
+            "target=els[i]; break;}"
+            "if(!target) return 'no_picker_trigger';"
+            "target.scrollIntoView({block:'center'});"
+            "var rr=target.getBoundingClientRect();"
+            "var cx=rr.left+rr.width/2,cy=rr.top+rr.height/2;"
+            "var hit=document.elementFromPoint(cx,cy)||target;"
+            "['pointerdown','pointerup','mousedown','mouseup','click'].forEach(function(tp){"
+            "hit.dispatchEvent(new PointerEvent(tp,{bubbles:true,cancelable:true,view:window,"
+            "clientX:cx,clientY:cy,pointerId:1,pointerType:'mouse'}));"
+            "});"
+            "return 'opened_picker:'+t;"
+            "})()"
+        )
+        picker_out = (agent_browser("eval", _open_option_picker_js, check=False).stdout or "").strip()
+        _log.info("Option picker open: %s", picker_out)
+        if "no_picker_trigger" not in picker_out and "already_open" not in picker_out:
+            time.sleep(0.8)
+
+        # 1) 텍스트 입력 필드 채우기 (snapshot ref 활용)
+        nodes = _snapshot_nodes()
+        for role, label, ref in nodes:
+            n = _label_norm(label)
+            if "입력해주세요" in n or "필수" in n:
+                try:
+                    agent_browser("fill", f"@{ref}", "test", check=True)
+                    _log.info("Filled input-type text field @%s", ref)
+                    time.sleep(0.3)
+                except Exception:
+                    pass
+                break
+
+        # 2) 드롭다운 순차 처리 — .list-container 패턴 활용
+        #    첫 드롭다운 헤더를 클릭하면 .list-container가 나타나고,
+        #    옵션 선택 후 다음 드롭다운이 자동으로 열림.
+        #    .list-container가 없어질 때까지 반복.
+        _pick_from_list_js = (
+            "(function(){"
+            "var norm=function(s){return(s||'').replace(/\\s+/g,'').trim();};"
+            "var lcs=document.querySelectorAll('.list-container');"
+            "if(!lcs.length) return 'no_list';"
+            "var lc=lcs[lcs.length-1];"
+            "var items=[].slice.call(lc.children);"
+            "var pick=null;"
+            "for(var i=0;i<items.length;i++){"
+            "var t=norm(items[i].textContent||'');"
+            "if(t.includes('\ud488\uc808')) continue;"  # 품절 제외
+            "var st=getComputedStyle(items[i]);"
+            "if(st.opacity!==''&&parseFloat(st.opacity)<0.5) continue;"
+            "if(st.pointerEvents==='none') continue;"
+            "pick=items[i]; break;}"
+            "if(!pick) return 'all_soldout';"
+            "pick.scrollIntoView({block:'center'});"
+            "var r=pick.getBoundingClientRect();"
+            "var cx=r.left+r.width/2, cy=r.top+r.height/2;"
+            "var hit=document.elementFromPoint(cx,cy)||pick;"
+            "['pointerdown','pointerup','mousedown','mouseup','click'].forEach(function(tp){"
+            "hit.dispatchEvent(new PointerEvent(tp,{bubbles:true,cancelable:true,view:window,"
+            "clientX:cx,clientY:cy,pointerId:1,pointerType:'mouse'}));"
+            "});"
+            "return 'picked:'+norm(pick.textContent||'');"
+            "})()"
+        )
+
+        _open_first_closed_dd_js = (
+            "(function(){"
+            "var norm=function(s){return(s||'').replace(/\\s+/g,'').trim();};"
+            "var excluded=['주문교환','주문반품','주문취소','교환신청','반품신청','취소신청',"
+            "'교환요청','반품요청','취소요청','배송메모','배송메모를','사유선택','사유를선택해주세요',"
+            "'수거방법','수거방법선택','교환사유','반품사유','취소사유','사진첨부'];"
+            "var els=[].slice.call(document.querySelectorAll('div'));"
+            "for(var i=0;i<els.length;i++){"
+            "var t=norm(els[i].textContent||'');"
+            "if(t.length<1||t.length>6) continue;"
+            "if(excluded.indexOf(t)>=0) continue;"
+            "var r=els[i].getBoundingClientRect();"
+            "if(r.top<60) continue;"
+            "if(r.width<100||r.height<30||r.height>80) continue;"
+            "if(!els[i].querySelector('svg')) continue;"
+            # 이미 열린 드롭다운(list-container가 형제에 있음)은 건너뜀
+            "var parent=els[i].parentElement;"
+            "if(parent&&parent.querySelector('.list-container')) continue;"
+            "els[i].scrollIntoView({block:'center'});"
+            "var rr=els[i].getBoundingClientRect();"
+            "var cx=rr.left+rr.width/2,cy=rr.top+rr.height/2;"
+            "var hit=document.elementFromPoint(cx,cy)||els[i];"
+            "['pointerdown','pointerup','mousedown','mouseup','click'].forEach(function(tp){"
+            "hit.dispatchEvent(new PointerEvent(tp,{bubbles:true,cancelable:true,view:window,"
+            "clientX:cx,clientY:cy,pointerId:1,pointerType:'mouse'}));"
+            "});"
+            "return 'opened:'+t;"
+            "}"
+            "return 'no_closed_dd';"
+            "})()"
+        )
+
+        # A) 첫 번째 닫힌 드롭다운만 명시적으로 열기 (색상)
+        #    이후 드롭다운(사이즈 등)은 옵션 선택 시 자동으로 열림 (cascade)
+        open_out = (agent_browser("eval", _open_first_closed_dd_js, check=False).stdout or "").strip()
+        _log.info("Dropdown open (initial): %s", open_out)
+        if "no_closed_dd" not in open_out:
+            time.sleep(0.5)
+
+        # B) .list-container가 존재하는 동안 반복하여 옵션 선택
+        #    색상 선택 → 사이즈 자동 열림 → 사이즈 선택 → cascade 종료
+        max_dd_rounds = 6
+        for _round in range(max_dd_rounds):
+            has_list = "list" in (agent_browser("eval",
+                "(function(){return document.querySelector('.list-container')?'list':'none';})()",
+                check=False).stdout or "")
+            if not has_list:
+                break
+            pick_out = (agent_browser("eval", _pick_from_list_js, check=False).stdout or "").strip()
+            _log.info("Dropdown pick [round %d]: %s", _round, pick_out)
+            time.sleep(0.5)
+
+        # 2-b) Fallback: native <select> 요소 처리 (list-container가 없는 UI)
+        _select_fallback_js = (
+            "(function(){"
+            "var norm=function(s){return(s||'').replace(/\\s+/g,'').trim();};"
+            "var selects=[].slice.call(document.querySelectorAll('select'));"
+            "var changed=0;"
+            "for(var i=0;i<selects.length;i++){"
+            "var opts=selects[i].options;"
+            "if(!opts||opts.length<2) continue;"
+            "if(selects[i].selectedIndex>0) continue;"
+            "for(var j=1;j<opts.length;j++){"
+            "if(opts[j].disabled) continue;"
+            "var txt=norm(opts[j].text||'');"
+            "if(txt.includes('\ud488\uc808')||txt.includes('\ub9e4\uc9c4')) continue;"
+            "selects[i].selectedIndex=j;"
+            "selects[i].dispatchEvent(new Event('change',{bubbles:true}));"
+            "selects[i].dispatchEvent(new Event('input',{bubbles:true}));"
+            "changed++; break;}"
+            "}"
+            "return 'select_fallback:changed='+changed;"
+            "})()"
+        )
+        sel_out = (agent_browser("eval", _select_fallback_js, check=False).stdout or "").strip()
+        if "changed=0" not in sel_out:
+            _log.info("Select element fallback: %s", sel_out)
+            time.sleep(0.5)
+
+        # 3) 선택완료 버튼 클릭
+        time.sleep(0.3)
+        done_clicked = False
+        nodes = _snapshot_nodes()
+        for role, label, ref in nodes:
+            n = _label_norm(label)
+            if n in ("선택완료", "선택 완료"):
+                try:
+                    _click_ref_with_escape_retry(ref)
+                    _log.info("Clicked done button @%s via snapshot", ref)
+                    done_clicked = True
+                except Exception:
+                    pass
+                break
+
+        if not done_clicked:
+            done_js = (
+                "(function(){"
+                "var norm=function(s){return(s||'').replace(/\\s+/g,'').trim();};"
+                "var btns=[].slice.call(document.querySelectorAll('button,div,[role=\"button\"],span'));"
+                "for(var i=0;i<btns.length;i++){"
+                "var t=norm(btns[i].textContent||'');"
+                "if(t!=='\uc120\ud0dd\uc644\ub8cc') continue;"
+                "var r=btns[i].getBoundingClientRect();"
+                "if(r.width<30||r.height<15) continue;"
+                + _ptr_click_js.replace("__TARGET__", "btns[i]") +
+                "return 'done_clicked';"
+                "}"
+                "return 'no_done_btn';"
+                "})()"
+            )
+            done_out = (agent_browser("eval", done_js, check=False).stdout or "").strip()
+            _log.info("Option done result: %s", done_out)
+            done_clicked = "done_clicked" in done_out
+
+        time.sleep(0.5)
+        return done_clicked or not _needs_option_selection()
+
     def _needs_option_selection() -> bool:
         out = agent_browser("eval", option_needs_selection_js, check=False).stdout or ""
         return "true" in out.lower()
@@ -1870,34 +2156,25 @@ def _submit_exchange_request(reason_text: str) -> str:
                 if not _needs_option_selection():
                     return True
 
-                # A) 모달/옵션 선택 UI 열기
-                opened = _open_option_modal_layered()
-                if not opened:
-                    area_status = (
-                        agent_browser("eval", option_activate_selection_area_js, check=False).stdout or ""
-                    ).strip()
-                    if "activated_selection_area" in area_status or "clicked_container" in area_status or "clicked_exchange_control" in area_status:
-                        time.sleep(0.35)
-                    section_open = (
-                        agent_browser("eval", option_open_exchange_section_js, check=False).stdout or ""
-                    ).strip()
-                    if section_open.startswith("opened_by_exchange_section:"):
-                        time.sleep(0.35)
-                    option_status = (agent_browser("eval", option_select_js, check=False).stdout or "").strip()
-                    if "opened_option_picker" in option_status:
-                        time.sleep(0.35)
-                    else:
-                        agent_browser("click", "text=옵션을 선택해주세요", check=False)
-                        time.sleep(0.25)
+                # A) Snapshot 기반으로 옵션 모달 열기 (배송메모 오매칭 방지)
+                _open_option_modal_layered()
+                time.sleep(0.3)
 
-                # B) 현재 단계 첫 활성 옵션 선택
+                # B) 입력형 옵션 모달 우선 처리 (텍스트+드롭다운)
+                if _handle_input_type_option():
+                    time.sleep(0.3)
+                    if not _needs_option_selection():
+                        return True
+                    continue
+
+                # C) 라디오/버튼형 옵션 선택 (JS → snapshot fallback)
                 picked = _pick_option_in_modal_layered()
                 if not picked:
                     agent_browser("eval", option_pick_one_js, check=False)
                     time.sleep(0.2)
                     _try_select_exchange_option_by_snapshot()
 
-                # C) 선택완료 가능한 경우 클릭 (단계 전환/종료 공통)
+                # D) 선택완료 클릭
                 done = _click_option_done_layered()
                 if not done:
                     agent_browser("eval", option_confirm_js, check=False)
