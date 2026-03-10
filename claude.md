@@ -73,6 +73,8 @@
 - 시나리오 생성기(`executor/generate_scenario_claude.py`)도 동일 정책으로 차단 검증.
 
 ## 6) 주요 커맨드
+- 초기 설정 (Claude Code 스킬):
+  - `/setup` — Python, agent-browser, .env, Chrome 등 환경 한번에 검증/설정
 - 기본 실행:
   - `python3 executor/execute_scenario.py`
 - 특정 시나리오:

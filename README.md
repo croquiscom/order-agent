@@ -36,6 +36,16 @@ order-agent/
 └── requirements.txt
 ```
 
+## 빠른 시작 (Quick Start)
+
+Claude Code를 사용 중이라면 `/setup` 스킬로 환경을 한번에 검증/설정할 수 있다:
+
+```
+/setup
+```
+
+수동 설정은 아래 사전 요구사항을 참고한다.
+
 ## 사전 요구사항
 
 ### Python
