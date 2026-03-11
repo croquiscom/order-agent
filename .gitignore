@@ -5,6 +5,14 @@ logs/*
 # OMC state
 .omc/
 
+# Serena MCP server files
+.serena/
+.mcp.json
+tslint.json
+
+### Local docs (not tracked) ###
+.omc/
+
 # Python
 __pycache__/
 *.pyc
