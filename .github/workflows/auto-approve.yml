@@ -16,4 +16,4 @@ jobs:
           startsWith(github.event.pull_request.title, 'docs:') ||
           startsWith(github.event.pull_request.title, 'revert:') ||
           startsWith(github.event.pull_request.title, 'test:')
-        uses: hmarr/auto-approve-action@a29f8bd391979575ad1a9e1669325153e9a43f74 # v4
+        uses: hmarr/auto-approve-action@f0939ea97e9205ef24d872e76833fa908a770363 # v4.0.0
