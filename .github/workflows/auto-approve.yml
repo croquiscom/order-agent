@@ -7,10 +7,13 @@ on:
 jobs:
   auto-approve:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
     steps:
-      - name: Auto approve if title contains "chore" or "docs" or "revert" or "test"
-        if: contains(github.event.pull_request.title, 'chore') ||
-          contains(github.event.pull_request.title, 'docs') ||
-          contains(github.event.pull_request.title, 'revert') ||
-          contains(github.event.pull_request.title, 'test')
-        uses: hmarr/auto-approve-action@v4
+      - name: Auto approve if title starts with "chore:", "docs:", "revert:" or "test:"
+        if: startsWith(github.event.pull_request.title, 'chore:') ||
+          startsWith(github.event.pull_request.title, 'docs:') ||
+          startsWith(github.event.pull_request.title, 'revert:') ||
+          startsWith(github.event.pull_request.title, 'test:')
+        uses: hmarr/auto-approve-action@a29f8bd391979575ad1a9e1669325153e9a43f74 # v4

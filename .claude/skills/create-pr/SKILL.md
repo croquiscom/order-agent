@@ -1,3 +1,8 @@
+---
+name: create-pr
+description: "GitHub PR 자동 생성. Use when: PR 만들어줘, 풀리퀘, PR 생성, github 반영."
+---
+
 # Create Pull Request
 
 GitHub에 PR을 생성하고 설명을 자동 생성한다.

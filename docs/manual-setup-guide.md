@@ -143,8 +143,11 @@ python3 executor/run_with_playwright.py --cdp <scenario.scn>
 ### AWS SSO 로그인
 
 ```bash
+# 환경변수로 자격증명 전달 (CLI 노출 방지)
+export AWS_SSO_USERNAME="<email>"
+read -s AWS_SSO_PASSWORD
 python3 executor/execute_scenario.py scenarios/aws/sso_login.scn \
-  --var username=<email> --var password=<pw>
+  --var username="${AWS_SSO_USERNAME}" --var password="${AWS_SSO_PASSWORD}"
 ```
 
 ---
@@ -203,7 +206,7 @@ lsof -i :9222   # CDP 포트 사용 여부 확인
 
 1. Authenticator 확장프로그램(ID: `bhghoamapcdpbohphigoooaddinpkbai`)이 Chrome에 설치되어 있는지 확인
 2. 확장프로그램에 해당 계정 OTP 시드가 등록되어 있는지 확인
-3. `ORDER_AGENT_BROWSER_ENABLE_EXTENSIONS` 환경변수가 `1`(기본값)인지 확인
+3. `ORDER_AGENT_BROWSER_DISABLE_EXTENSIONS` 환경변수가 설정되어 있지 않은지 확인 — 기본값은 확장프로그램 활성 상태
 
 **`websocket-client` 모듈 오류**
 

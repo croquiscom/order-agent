@@ -1,3 +1,8 @@
+---
+name: commit
+description: "Conventional Commits 형식으로 Git 커밋 생성. Use when: 커밋해줘, 반영해, commit, 변경사항 저장."
+---
+
 # Smart Commit
 
 Conventional Commits 형식으로 Git 커밋을 생성한다.
