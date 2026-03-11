@@ -72,7 +72,7 @@ def read_otp(account_name: str, cdp_port: Optional[int] = None) -> str:
         ws_browser.close()
 
     # 2) 팝업 로딩 대기
-    time.sleep(2)
+    time.sleep(3)
 
     # 3) 팝업 타겟의 WebSocket URL 획득
     page_ws_url = None
