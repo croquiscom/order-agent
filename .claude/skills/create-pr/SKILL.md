@@ -80,7 +80,7 @@ git log main..HEAD --oneline
 git push -u origin <branch-name>
 
 # PR 생성
-gh pr create --title "<title>" --body "$(cat <<'EOF'
+gh pr create --title "<title>" --assignee @me --body "$(cat <<'EOF'
 ## Summary
 - ...
 
