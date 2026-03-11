@@ -6,7 +6,10 @@ on:
 
 jobs:
   auto-approve:
-    runs-on: kakaostyle-gha-runner-arm64
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
     steps:
       - name: Auto approve if title contains "chore" or "docs" or "revert" or "test"
         if: contains(github.event.pull_request.title, 'chore') ||
