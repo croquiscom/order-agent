@@ -289,6 +289,7 @@ Authenticator 확장프로그램(ID: `bhghoamapcdpbohphigoooaddinpkbai`)이 Chro
 | `/browser-status` | 브라우저 상태 확인 |
 | `/commit` | 변경 분석 → 자동 커밋 |
 | `/create-pr` | PR 자동 생성 |
+| `/update-pr` | 기존 PR 업데이트 |
 
 ---
 
