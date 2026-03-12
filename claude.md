@@ -47,18 +47,53 @@
 5. 로그는 `logs/order-agent-exec_YYYYMMDD_HHMMSS.log`로 기록.
 
 ## 4) 시나리오 DSL (현재 코드 기준)
-허용 액션 (`executor/execute_scenario.py`):
-- `NAVIGATE <url>`
-- `CLICK <selector_or_id>`
-- `FILL <selector_or_id> <value...>`
-- `WAIT_FOR <selector_or_id|milliseconds>`
-- `CHECK <selector_or_id>`
-- `PRESS <key>`
-- `CHECK_URL <substring>`
-- `WAIT_URL <substring>`
-- `DUMP_STATE <tag>`
-- `CHECK_NEW_ORDER_SHEET`
-- `READ_OTP <account_name> [var_name]` - Authenticator 확장프로그램에서 OTP 읽어 `{{var_name}}` 변수에 저장 (기본 var: `otp`)
+허용 액션 (`executor/execute_scenario.py`의 `ALLOWED_ACTIONS`):
+
+기본 브라우저 제어:
+- `NAVIGATE <url>` — URL 이동
+- `CLICK <selector_or_id>` — 요소 클릭
+- `FILL <selector_or_id> <value...>` — 입력 필드에 값 입력 (CDP 직접 전송)
+- `WAIT_FOR <selector_or_id|milliseconds>` — 요소 출현 또는 밀리초 대기
+- `CHECK <selector_or_id>` — 요소 존재 확인
+- `PRESS <key>` — 키보드 키 입력
+
+URL 검증:
+- `CHECK_URL <substring>` — 현재 URL에 substring 포함 확인
+- `CHECK_NOT_URL <substring>` — 현재 URL에 substring 미포함 확인
+- `WAIT_URL <substring>` — URL에 substring이 나타날 때까지 대기 (타임아웃: `--url-wait-timeout-ms`)
+
+주문/결제 검증:
+- `CHECK_NEW_ORDER_SHEET` — 새 주문서 ID 생성 확인 (인자 없음)
+- `SAVE_ORDER_DETAIL_ID` — 현재 주문상세 ID 저장 (인자 없음)
+- `CHECK_ORDER_DETAIL_ID_CHANGED` — 저장된 주문상세 ID가 변경되었는지 확인 (인자 없음)
+- `SAVE_ORDER_NUMBER` — 현재 주문번호 저장 (인자 없음)
+- `CHECK_ORDER_NUMBER_CHANGED` — 저장된 주문번호가 변경되었는지 확인 (인자 없음)
+- `CHECK_PAYMENT_RESULT` — 결제 결과 검증 (인자 없음)
+
+주문 목록/장바구니 조작:
+- `CLICK_ORDER_DETAIL_BY_STATUS <status>` — 주문 상태별 주문상세 클릭
+- `CLICK_ORDER_DETAIL_WITH_ACTION <action>` — 특정 액션이 있는 주문상세 클릭
+- `APPLY_ORDER_STATUS_FILTER <filter>` — 주문 상태 필터 적용
+- `SELECT_CART_ITEM_BY_TEXT <text>` — 텍스트로 장바구니 아이템 선택
+
+클레임 요청 제출:
+- `SUBMIT_CANCEL_REQUEST <reason>` — 취소 클레임 요청 제출
+- `SUBMIT_RETURN_REQUEST <reason>` — 반품 클레임 요청 제출
+- `SUBMIT_EXCHANGE_REQUEST <reason>` — 교환 클레임 요청 제출
+
+스냅샷 기반 조작:
+- `CLICK_SNAPSHOT_TEXT <text>` — 접근성 스냅샷에서 텍스트 매칭으로 클릭
+- `CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT <text>` — 스냅샷 텍스트 앞의 체크박스 클릭
+
+인증/유틸리티:
+- `ENSURE_LOGIN_ALPHA` — alpha 환경 자동 로그인 (`ALPHA_USERNAME`/`ALPHA_PASSWORD` 환경변수 필요)
+- `READ_OTP <account_name> [var_name]` — Authenticator 확장프로그램에서 OTP 읽어 `{{var_name}}` 변수에 저장 (기본 var: `otp`)
+- `EVAL <expression>` — JavaScript 표현식 실행
+- `DUMP_STATE <tag>` — 현재 페이지 상태 덤프
+
+디버깅/테스트 제어:
+- `PRINT_ACTIVE_MODAL` — 현재 활성 모달 상태 출력 (인자 없음)
+- `EXPECT_FAIL [error_pattern]` — 다음 액션이 실패할 것으로 예상 표시 (선택적 에러 코드 패턴)
 
 파싱 규칙:
 - 빈 줄, `#` 주석 줄 무시.
@@ -85,8 +120,18 @@
   - `python3 executor/execute_scenario.py --continue-on-error`
 - 오버레이 재시도 비활성화:
   - `python3 executor/execute_scenario.py --no-retry-on-overlay`
+- CLICK fallback 비활성화:
+  - `python3 executor/execute_scenario.py --disable-click-fallback`
+- 빠른 실패 모드 (timeout=12s + click fallback 비활성화):
+  - `python3 executor/execute_scenario.py --fast-mode`
 - WAIT_URL 타임아웃 설정:
   - `python3 executor/execute_scenario.py --url-wait-timeout-ms 30000 <scenario.scn>`
+- 멀티 시나리오 실행 시 실패 즉시 중단:
+  - `python3 executor/execute_scenario.py --stop-on-scenario-fail *.scn`
+- 기본 URL 오버라이드:
+  - `python3 executor/execute_scenario.py --base-url https://staging.zigzag.kr <scenario.scn>`
+- keep-alive ping 간격 설정:
+  - `python3 executor/execute_scenario.py --keep-browser-alive --keep-alive-interval-sec 15 <scenario.scn>`
 - Claude 시나리오 생성:
   - `python3 executor/generate_scenario_claude.py "<prompt>"`
 - AWS SSO 로그인:
@@ -95,8 +140,10 @@
 ## 7) 환경/의존성
 - Python 3.12+
 - 실행 시 `agent-browser` CLI가 PATH에 있어야 함.
+- `pip install -r requirements.txt` — `anthropic>=0.40.0`, `python-dotenv`, `websocket-client`
+- `.env` 파일 지원: `python-dotenv`로 자동 로드 (미설치 시 환경변수 직접 설정)
 - 시나리오 생성 시 `ANTHROPIC_API_KEY` 필요.
-- OTP 읽기 시 `websocket-client` 패키지 필요 (`pip install websocket-client`).
+- `ENSURE_LOGIN_ALPHA` 액션 사용 시 `ALPHA_USERNAME`/`ALPHA_PASSWORD` 환경변수 필요.
 - 현재 작업 환경에서는 `pytest` 명령이 없어 테스트 실행 불가(설치 필요).
 
 ## 8) CDP 직접 입력 패턴 (agent-browser 우회)
@@ -165,13 +212,29 @@
 - `agent-browser` CLI 실행 가능 상태(PATH 등록)
 - 테스트 대상 시나리오 파일 준비 (`scenarios/*/*.scn`)
 - 필요 시 환경변수로 활성화 제어:
-  - `AGENT_BROWSER_AUTO_CONNECT` (기본 `1`)
-  - `AGENT_BROWSER_EXECUTABLE_PATH` (수동 지정 시)
-  - `ORDER_AGENT_DISABLE_BROWSER_PATH_RESOLVE` (`1`이면 자동 경로탐색 비활성화)
-  - `ORDER_AGENT_CDP_PORT` (기본 `9222`)
-  - `ORDER_AGENT_BROWSER_ATTACH_ONLY` (`1`이면 attach 전용)
-  - `ORDER_AGENT_BROWSER_PROFILE_DIR` (전용 user-data-dir)
-  - `ORDER_AGENT_BROWSER_HEADLESS`, `ORDER_AGENT_BROWSER_NO_SANDBOX`, `ORDER_AGENT_BROWSER_EXTRA_ARGS`
+  - 브라우저 연결:
+    - `AGENT_BROWSER_AUTO_CONNECT` (기본 `1`) — 기존 브라우저 auto-attach
+    - `ORDER_AGENT_BROWSER_AUTO_CONNECT` — 위 변수의 fallback (미설정 시 기본 `1`)
+    - `AGENT_BROWSER_EXECUTABLE_PATH` — 브라우저 실행 경로 수동 지정
+    - `ORDER_AGENT_DISABLE_BROWSER_PATH_RESOLVE` (`1`이면 자동 경로탐색 비활성화)
+    - `ORDER_AGENT_CDP_PORT` (기본 `9222`)
+    - `ORDER_AGENT_BROWSER_ATTACH_ONLY` (`1`이면 attach 전용, 브라우저 기동 안 함)
+  - 브라우저 기동 옵션:
+    - `ORDER_AGENT_BROWSER_PROFILE_DIR` — 전용 user-data-dir
+    - `ORDER_AGENT_BROWSER_HEADLESS` — 헤드리스 모드
+    - `ORDER_AGENT_BROWSER_NO_SANDBOX` — 샌드박스 비활성화
+    - `ORDER_AGENT_BROWSER_EXTRA_ARGS` — 추가 Chrome 실행 인자
+    - `ORDER_AGENT_BROWSER_DISABLE_EXTENSIONS` — 확장프로그램 없이 기동
+    - `ORDER_AGENT_DISABLE_BROWSER_BOOTSTRAP` — 브라우저 자동 기동/관리 비활성화
+  - CDP 제어:
+    - `ORDER_AGENT_DISABLE_CDP_INJECTION` — `--cdp` 플래그 자동 주입 비활성화
+    - `ORDER_AGENT_DISABLE_CDP_TAB_SANITIZE` — 시작 시 CDP 탭 정리 비활성화
+    - `ORDER_AGENT_AGENT_BROWSER_TIMEOUT_SEC` — agent-browser subprocess 타임아웃 (기본: 20초)
+  - 시나리오 실행:
+    - `ALPHA_USERNAME` / `ALPHA_PASSWORD` — `ENSURE_LOGIN_ALPHA` 액션에 필요
+    - `ORDER_AGENT_REASON_TEXT` — 클레임 사유 텍스트 사전 지정
+    - `ORDER_AGENT_REASON_INDEX` — 클레임 사유 선택지 인덱스 사전 지정
+    - `ALLOW_REAL_PAYMENT` (`1`이면 결제 버튼 안전 차단 해제)
 
 실행 방법 A (권장, Chrome GUI):
 - `./scripts/run_scenario_chrome.sh`
