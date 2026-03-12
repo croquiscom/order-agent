@@ -86,8 +86,6 @@ gh pr create --title "<title>" --assignee @me --body "$(cat <<'EOF'
 
 ## Test plan
 - [ ] ...
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```
