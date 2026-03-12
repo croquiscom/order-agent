@@ -17,6 +17,15 @@ CDP 기반 브라우저 에이전트 프레임워크.
 
 **수동 설정**
 
+```bash
+./scripts/setup_env.sh
+make doctor
+make doctor-json
+make doctor-strict
+./scripts/doctor.sh
+python3 executor/doctor.py --json
+```
+
 [수동 설정 가이드](docs/manual-setup-guide.md) 참조.
 
 ---

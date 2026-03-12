@@ -31,6 +31,9 @@ agent-browser --version
 # 4. 환경변수 설정
 cp .env.example .env
 # .env 파일을 편집하여 실제 값 입력
+
+# 5. 환경 진단 / 온보딩
+./scripts/setup_env.sh
 ```
 
 ---
@@ -95,7 +98,49 @@ AWS SSO 등 OTP가 필요한 시나리오를 실행하려면 Chrome에 Authentic
 
 ---
 
-## 5. 첫 시나리오 실행
+## 5. Doctor / 온보딩
+
+권장 순서는 아래와 같다.
+
+```bash
+# .env가 없으면 생성하고, 브라우저/자격증명/CDP 상태를 함께 점검
+./scripts/setup_env.sh
+make setup
+
+# 이후 진단만 다시 실행
+./scripts/doctor.sh
+make doctor
+
+# 자동화/CI용 JSON 출력
+python3 executor/doctor.py --json
+make doctor-json
+
+# WARN도 실패로 취급하는 엄격 모드
+./scripts/setup_env.sh --strict
+make doctor-strict
+
+# 경고/실패만 간단히 출력
+python3 executor/doctor.py --quiet
+make doctor-quiet
+
+# 결과 파일 저장
+python3 executor/doctor.py --json --output logs/doctor.json
+```
+
+`doctor`는 아래를 확인한다.
+
+- `.env` 존재 여부
+- `agent-browser` 설치 여부
+- Chrome 실행 파일 탐색 여부
+- 전용 브라우저 프로필 경로
+- 브라우저 기동 정책(attach-only 여부, auto-launch 여부)
+- CDP 포트 연결 가능 여부
+- 기본 페이지 확보 여부
+- `ALPHA_USERNAME`, `ALPHA_PASSWORD` 존재 여부
+
+기본 프로필 경로는 `~/.order-agent/browser/agent-browser-profile`이다. 별도 사용자 데이터 디렉터리를 사용하므로 개인 브라우저 세션과 테스트 세션이 섞이지 않는다.
+
+## 6. 첫 시나리오 실행
 
 ```bash
 # 드라이런 (브라우저 없이 파싱/검증만 수행)
@@ -107,7 +152,7 @@ python3 executor/execute_scenario.py scenarios/zigzag/alpha_direct_buy_complete_
 
 ---
 
-## 6. 주요 실행 방법
+## 7. 주요 실행 방법
 
 ### 방법 A — Chrome GUI (권장)
 
@@ -152,7 +197,7 @@ python3 executor/execute_scenario.py scenarios/aws/sso_login.scn \
 
 ---
 
-## 7. 검증 포인트
+## 8. 검증 포인트
 
 실행 후 아래를 확인한다.
 
@@ -167,7 +212,7 @@ ls -lt logs/*.log | head -5
 
 ---
 
-## 8. 트러블슈팅
+## 9. 트러블슈팅
 
 **`agent-browser: command not found`**
 
