@@ -2,6 +2,20 @@
 
 ## CLI 옵션
 
+**진단**
+
+```bash
+./scripts/doctor.sh
+make doctor
+python3 executor/doctor.py --no-launch-browser
+python3 executor/doctor.py --json
+python3 executor/doctor.py --strict
+python3 executor/doctor.py --quiet
+python3 executor/doctor.py --json --output logs/doctor.json
+make doctor-json
+make doctor-strict
+```
+
 | 옵션 | 설명 |
 |---|---|
 | `--dry-run` | 파싱/검증만 수행, 실제 실행 안 함 |
@@ -26,7 +40,7 @@
 | `AGENT_BROWSER_AUTO_CONNECT` | `1` | CDP 포트에 자동 attach 시도 |
 | `AGENT_BROWSER_EXECUTABLE_PATH` | (자동탐색) | Chrome 실행 파일 경로 수동 지정 |
 | `ORDER_AGENT_BROWSER_ATTACH_ONLY` | | `1`이면 자동 기동 금지, attach만 허용 |
-| `ORDER_AGENT_BROWSER_PROFILE_DIR` | | 전용 user-data-dir 경로 |
+| `ORDER_AGENT_BROWSER_PROFILE_DIR` | `~/.order-agent/browser/agent-browser-profile` | 전용 user-data-dir 경로 |
 | `ORDER_AGENT_BROWSER_HEADLESS` | | `1`이면 headless 모드 |
 | `ORDER_AGENT_BROWSER_NO_SANDBOX` | | `1`이면 no-sandbox 플래그 추가 |
 | `ORDER_AGENT_BROWSER_EXTRA_ARGS` | | 추가 Chrome 실행 인수 문자열 |
@@ -63,6 +77,9 @@
 
 **`Chrome not found` 또는 CDP 포트 연결 실패**
 Chrome 설치 여부 확인. 필요 시 `AGENT_BROWSER_EXECUTABLE_PATH`로 경로 수동 지정.
+
+**프로필이 기존 개인 브라우저와 섞이는 것 같음**
+`ORDER_AGENT_BROWSER_PROFILE_DIR`를 확인한다. 기본값은 `~/.order-agent/browser/agent-browser-profile`이며, 개인 Chrome 프로필과 분리된 전용 경로다.
 
 **요소 탐색 실패 (`Element not found`, `not visible`)**
 페이지 DOM 변경 여부 확인 후 `.scn` 셀렉터 갱신.

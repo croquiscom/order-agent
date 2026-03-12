@@ -106,11 +106,44 @@ def _should_manage_browser() -> bool:
     return True
 
 
+def _profile_base_dir() -> Path:
+    """Base directory for all order-agent browser profiles."""
+    return Path.home() / ".order-agent" / "browser"
+
+
 def _browser_profile_dir() -> str:
-    return os.getenv(
-        "ORDER_AGENT_BROWSER_PROFILE_DIR",
-        str(Path.home() / ".order-agent" / "browser" / "agent-browser-profile"),
-    )
+    explicit = os.getenv("ORDER_AGENT_BROWSER_PROFILE_DIR", "").strip()
+    if explicit:
+        return explicit
+    name = os.getenv("ORDER_AGENT_BROWSER_PROFILE_NAME", "agent-browser-profile").strip()
+    return str(_profile_base_dir() / name)
+
+
+def list_profiles() -> list[dict[str, str]]:
+    """List all browser profiles with name and path."""
+    base = _profile_base_dir()
+    if not base.exists():
+        return []
+    profiles = []
+    for d in sorted(base.iterdir()):
+        if d.is_dir():
+            name = d.name
+            active = str(d) == _browser_profile_dir()
+            profiles.append({"name": name, "path": str(d), "active": active})
+    return profiles
+
+
+def resolve_profile_dir(name: str | None = None) -> str:
+    """Resolve profile directory by name. None = default."""
+    if name is None:
+        return _browser_profile_dir()
+    return str(_profile_base_dir() / name)
+
+
+def active_profile_name() -> str:
+    """Return the name of the currently active profile."""
+    profile_dir = _browser_profile_dir()
+    return Path(profile_dir).name
 
 
 def _launch_browser_for_cdp() -> bool:

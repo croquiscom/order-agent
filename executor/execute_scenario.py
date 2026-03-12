@@ -20,8 +20,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from core.doctor import collect_doctor_checks, doctor_passed, doctor_summary, print_doctor_report
 from core.logger import setup_logger
-from core.runner import AgentBrowserError, agent_browser
+from core.runner import AgentBrowserError, _browser_profile_dir, active_profile_name, agent_browser
 
 DEFAULT_SCENARIO = REPO_ROOT / "scenarios" / "zigzag" / "alpha_direct_buy_complete_normal.scn"
 ALLOWED_ACTIONS = {
@@ -2725,70 +2726,22 @@ def _preflight_check(logger: "logging.Logger", dry_run: bool = False) -> bool:
     if dry_run:
         return True
 
-    out = sys.stderr
-    out.write(f"\n{'─'*70}\n")
-    out.write("  Preflight Check\n")
-    out.write(f"{'─'*70}\n")
-
-    # 1. agent-browser CLI
-    import shutil
-    ab_path = shutil.which("agent-browser")
-    if not ab_path:
-        out.write("  FAIL  agent-browser CLI not found in PATH\n")
-        out.write(f"{'─'*70}\n\n")
-        logger.error("Preflight failed: agent-browser not in PATH")
-        return False
-    out.write(f"  PASS  agent-browser: {ab_path}\n")
-
-    # 2. CDP connection / browser auto-launch
-    try:
-        from core.runner import _ensure_cdp_browser_ready, _cdp_port
-        port = _cdp_port()
-        cdp_ok = _ensure_cdp_browser_ready()
-        if not cdp_ok:
-            out.write(f"  FAIL  CDP port {port}: no browser running\n")
-            out.write("        -> Chrome을 CDP 모드로 실행하세요:\n")
-            out.write("           ./scripts/run_scenario_chrome.sh <scenario.scn>\n")
-            out.write(f"{'─'*70}\n\n")
-            logger.error("Preflight failed: CDP not ready on port %s", port)
-            return False
-        out.write(f"  PASS  CDP port {port}: connected\n")
-    except Exception as exc:
-        out.write(f"  FAIL  CDP check error: {exc}\n")
-        out.write(f"{'─'*70}\n\n")
-        logger.error("Preflight failed: %s", exc)
-        return False
-
-    # 3. Page availability - open about:blank if no page
-    try:
-        result = agent_browser("get", "url", check=False)
-        if result.returncode != 0 or not result.stdout.strip():
-            logger.info("No active page detected. Creating new tab via CDP...")
-            import urllib.request
-            cdp_url = f"http://127.0.0.1:{port}/json/new?about:blank"
-            req = urllib.request.Request(cdp_url, method="PUT")
-            try:
-                urllib.request.urlopen(req, timeout=5)
-                time.sleep(0.5)
-            except Exception:
-                pass
-            result = agent_browser("get", "url", check=False)
-            if result.returncode != 0:
-                out.write("  FAIL  No page available (tried creating tab via CDP)\n")
-                out.write(f"{'─'*70}\n\n")
-                logger.error("Preflight failed: cannot open initial page")
-                return False
-            out.write("  PASS  Page: about:blank (auto-created)\n")
-        else:
-            url = result.stdout.strip()
-            display_url = url if len(url) <= 50 else url[:47] + "..."
-            out.write(f"  PASS  Page: {display_url}\n")
-    except Exception as exc:
-        out.write(f"  WARN  Page check skipped: {exc}\n")
-
-    out.write(f"{'─'*70}\n\n")
-    logger.info("Preflight check passed.")
-    return True
+    checks = collect_doctor_checks(launch_browser=True, use_cache=True)
+    print_doctor_report(checks, stream=sys.stderr, title="Preflight Check")
+    ok = doctor_passed(checks)
+    if ok:
+        logger.info("Preflight check passed.")
+    else:
+        failed = [check for check in checks if check.status == "FAIL"]
+        failed_keys = ", ".join(check.key for check in failed)
+        logger.error("Preflight failed: %s", failed_keys)
+        sys.stderr.write("  Fix commands:\n")
+        for check in failed:
+            if check.hint:
+                sys.stderr.write(f"    [{check.key}]  {check.hint}\n")
+        sys.stderr.write("  Quick fix: python3 executor/doctor.py --fix\n")
+        sys.stderr.write(f"{'─'*70}\n\n")
+    return ok
 
 
 def run_scenario(
@@ -2810,6 +2763,7 @@ def run_scenario(
     if not _preflight_check(logger, dry_run=dry_run):
         return 1
 
+    logger.info("Browser profile: %s (%s)", active_profile_name(), _browser_profile_dir())
     logger.info("Loading scenario: %s", path)
     commands = parse_scenario(path)
     if not commands:
