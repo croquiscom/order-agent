@@ -62,16 +62,8 @@ git log main..HEAD --oneline
 
 ### 4. PR 설명 생성
 
-```markdown
-## Summary
-- 변경 항목 1
-- 변경 항목 2
-- 변경 항목 3
-
-## Test plan
-- [ ] 테스트 항목 1
-- [ ] 테스트 항목 2
-```
+`.github/PULL_REQUEST_TEMPLATE.md`를 읽어 그 형식에 맞춰 작성한다.
+템플릿 파일이 SSOT이므로 스킬 내에 형식을 하드코딩하지 않는다.
 
 ### 5. Push 및 PR 생성
 
@@ -79,15 +71,9 @@ git log main..HEAD --oneline
 # remote에 push (필요한 경우)
 git push -u origin <branch-name>
 
-# PR 생성
+# PR 생성 — body는 템플릿 형식에 맞춰 작성
 gh pr create --title "<title>" --assignee @me --body "$(cat <<'EOF'
-## Summary
-- ...
-
-## Test plan
-- [ ] ...
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+<.github/PULL_REQUEST_TEMPLATE.md 형식에 맞춰 작성>
 EOF
 )"
 ```
@@ -109,7 +95,7 @@ PR URL을 사용자에게 출력한다.
 - [ ] 브랜치 컨벤션 준수
 - [ ] remote push 완료
 - [ ] PR 제목 Conventional Commit 형식
-- [ ] PR 설명에 Summary + Test plan 포함
+- [ ] PR 설명이 PR 템플릿 형식 준수
 - [ ] PR URL 출력
 ```
 

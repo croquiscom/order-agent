@@ -48,6 +48,7 @@ Conventional Commit 형식 유지:
 
 ### 4. 설명 업데이트 전략
 
+- `.github/PULL_REQUEST_TEMPLATE.md`를 읽어 그 형식에 맞춰 작성한다. 템플릿 파일이 SSOT.
 - **Incremental**: 기존 정보 유지하며 새 정보 추가
 - **Context Preservation**: 원래 비즈니스 맥락 유지
 - **Change Highlighting**: 업데이트된 내용 명확히 표시
@@ -58,15 +59,9 @@ Conventional Commit 형식 유지:
 # 제목 업데이트 (변경 시)
 gh pr edit --title "<updated-title>"
 
-# 설명 업데이트
+# 설명 업데이트 — body는 템플릿 형식에 맞춰 작성
 gh pr edit --body "$(cat <<'EOF'
-## Summary
-- 업데이트된 요약
-
-## Test plan
-- [ ] 테스트 항목
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
+<.github/PULL_REQUEST_TEMPLATE.md 형식에 맞춰 작성>
 EOF
 )"
 ```
