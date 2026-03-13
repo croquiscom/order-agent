@@ -94,6 +94,7 @@ def test_doctor_report_json_contains_summary():
     assert '"total": 2' in payload
     assert '"warn": 1' in payload
     assert '"strict_ok": false' in payload
+    assert '"cached": false' in payload
 
 
 def test_doctor_report_text_quiet_mode_filters_passes():
@@ -117,3 +118,12 @@ def test_doctor_report_text_quiet_mode_all_pass():
     )
 
     assert rendered == "PASS  All doctor checks passed.\n"
+
+
+def test_doctor_report_text_quiet_mode_all_pass_cached():
+    rendered = doctor_report_text(
+        [DoctorCheck("env_file", "PASS", ".env file detected", "/tmp/.env", cached=True)],
+        quiet=True,
+    )
+
+    assert rendered == "PASS  All doctor checks passed. [cached]\n"

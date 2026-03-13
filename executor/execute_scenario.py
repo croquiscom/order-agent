@@ -2735,11 +2735,16 @@ def _preflight_check(logger: "logging.Logger", dry_run: bool = False) -> bool:
         failed = [check for check in checks if check.status == "FAIL"]
         failed_keys = ", ".join(check.key for check in failed)
         logger.error("Preflight failed: %s", failed_keys)
+        summary = doctor_summary(checks)
+        if summary.get("cached"):
+            sys.stderr.write("  Note: preflight used cached diagnostic results.\n")
         sys.stderr.write("  Fix commands:\n")
         for check in failed:
             if check.hint:
                 sys.stderr.write(f"    [{check.key}]  {check.hint}\n")
-        sys.stderr.write("  Quick fix: python3 executor/doctor.py --fix\n")
+        if any(check.key == "cdp" for check in failed):
+            sys.stderr.write("  Try browser auto-launch fix: python3 executor/doctor.py --fix\n")
+        sys.stderr.write("  Fresh diagnosis: python3 executor/doctor.py --no-cache\n")
         sys.stderr.write(f"{'─'*70}\n\n")
     return ok
 

@@ -145,7 +145,7 @@ URL 검증:
 - `.env` 파일 지원: `python-dotenv`로 자동 로드 (미설치 시 환경변수 직접 설정)
 - 시나리오 생성 시 `ANTHROPIC_API_KEY` 필요.
 - `ENSURE_LOGIN_ALPHA` 액션 사용 시 `ALPHA_USERNAME`/`ALPHA_PASSWORD` 환경변수 필요.
-- 현재 작업 환경에서는 `pytest` 명령이 없어 테스트 실행 불가(설치 필요).
+- 테스트 실행: `python3 -m pytest -q`
 
 ## 8) CDP 직접 입력 패턴 (agent-browser 우회)
 ### 문제
