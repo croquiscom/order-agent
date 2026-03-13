@@ -1,5 +1,5 @@
-# 장바구니 담기 → 구매 완료 — 직진배송
-# 목표: 상품페이지 -> 장바구니 담기 -> 장바구니 구매 -> 포인트 전액 -> 주문완료 확인
+# 장바구니 단건 구매 완료 — 직진배송
+# 목표: 상품페이지 -> 장바구니 담기 -> 대상 상품만 선택 -> 포인트 전액 결제 -> 주문완료 확인
 
 ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/catalog/products/100100014
 WAIT_FOR 1200
@@ -11,11 +11,19 @@ WAIT_FOR 2000
 EVAL "(async () => { const text = (el) => (el && el.textContent ? el.textContent : '').replace(/\\s+/g,'').trim(); const btn = (name) => [...document.querySelectorAll('button,[role=button]')].find(b => text(b) === name); const buy = btn('구매하기'); if (!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r => setTimeout(r, 500)); const cart = btn('장바구니'); if (!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart'; })()"
 WAIT_FOR 1500
 
-# 장바구니에서 구매
+# 장바구니에서 직진배송 상품만 선택 후 구매
 NAVIGATE https://alpha.zigzag.kr/checkout/cart?from=pdp
 WAIT_FOR 1800
+# 전체선택 해제 후 대상 상품만 선택 (토글 방식이므로 전체해제 필요)
+CLICK_SNAPSHOT_TEXT "전체선택"
+WAIT_FOR 500
+SELECT_CART_ITEM_BY_TEXT "사이즈 정보 테스트 222222"
+WAIT_FOR 300
 PRESS Escape
 CLICK_SNAPSHOT_TEXT "구매하기"
+WAIT_FOR 2000
+# 브릿지 페이지 경유 시 한 번 더 구매하기 클릭
+EVAL "(async () => { if (window.location.href.includes('cart-checkout-bridge')) { const btn = [...document.querySelectorAll('button,[role=button]')].find(el => (el.textContent || '').replace(/\\s+/g,'').includes('구매하기')); if (btn) { btn.click(); return 'bridge_clicked'; } return 'bridge_no_button'; } return 'no_bridge'; })()"
 WAIT_URL /checkout/order-sheets/
 CHECK_URL /checkout/order-sheets/
 CHECK_NEW_ORDER_SHEET
