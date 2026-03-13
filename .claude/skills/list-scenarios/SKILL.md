@@ -14,19 +14,26 @@ description: "Lists all available .scn test scenarios with Korean descriptions g
 
 ## Execution Steps
 
-1. `services/*/scenarios/*.scn` 파일을 모두 탐색한다.
+1. `scenarios/**/*.scn` 파일을 모두 탐색한다.
 
 2. 각 파일의 첫 번째 `#` 주석 줄에서 한글 설명을 추출한다.
 
-3. 아래 카테고리별로 그룹핑하여 번호 매긴 목록을 출력한다:
-   - **주문 생성 — 스토어배송**: `*_normal.scn`
-   - **주문 생성 — 직진배송**: `*_zigzin.scn`
-   - **장바구니 기타**: `*_cart_multi_*.scn`
-   - **클레임 (성공)**: `*_claim_{cancel,return,exchange}*.scn` (policy_blocked 제외)
-   - **클레임 (실패/정책 차단)**: `*_policy_blocked.scn`
-   - **결제/포인트 예외**: `*_payment_*`, `*_insufficient_*`
-   - **기타**: 위 카테고리에 속하지 않는 zigzag 시나리오
-   - **네이버**: `services/naver/scenarios/*.scn`
+3. 아래 3대 카테고리 → 세부 그룹으로 번호 매긴 목록을 출력한다:
+
+   ### 지그재그 주문 E2E (`scenarios/zigzag/`)
+   - **바로구매**: `*_direct_buy_*.scn`
+   - **장바구니**: `*_cart_*.scn`
+   - **클레임 — 취소**: `*_claim_cancel*.scn`
+   - **클레임 — 반품**: `*_claim_return*.scn`
+   - **클레임 — 교환**: `*_claim_exchange*.scn`
+   - **클레임 — 공통**: `*_claim_entry_*.scn`
+   - **결제/안정성 검증**: `*_payment_*`, `*_insufficient_*`, `*_relogin_*`, `*_full_history_*`
+
+   ### Naver 스모크 (`scenarios/naver/`)
+   - `*_naver.scn`
+
+   ### AWS (`scenarios/aws/`)
+   - `*_login.scn`
 
 4. 목록에 없는 새 `.scn` 파일이 발견되면 해당 카테고리에 자동 추가한다.
 
