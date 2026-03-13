@@ -10,27 +10,62 @@ from pathlib import Path
 
 import anthropic
 
+from executor.execute_scenario import (
+    ALLOWED_ACTIONS,
+    BLOCKED_CLICK_TARGETS,
+    ScenarioCommand,
+    validate_command,
+)
+
 SCENARIO_DIR = Path(__file__).resolve().parents[1] / "scenarios" / "zigzag"
 DEFAULT_OUTPUT = SCENARIO_DIR / "generated_zigzag.scn"
 DEFAULT_MODEL = "claude-sonnet-4-20250514"
-ALLOWED_ACTIONS = {"NAVIGATE", "CLICK", "FILL", "WAIT_FOR", "CHECK"}
-BLOCKED_CLICK_TARGETS = {"confirm_payment"}
 
 SYSTEM_PROMPT = """\
 You are a test scenario generator for the Zigzag e-commerce platform.
-Generate scenarios using these commands:
+Generate scenarios using the order-agent DSL only.
+
+Allowed actions:
 - NAVIGATE <url>
-- CLICK <element_id>
-- FILL <field_id> <value>
-- WAIT_FOR <element_id>
-- CHECK <element_id>
+- CLICK <selector>
+- FILL <selector> <value>
+- WAIT_FOR <selector|ms>
+- CHECK <selector>
+- PRESS <key>
+- CHECK_URL <substring>
+- CHECK_NOT_URL <substring>
+- WAIT_URL <substring>
+- DUMP_STATE <tag>
+- CHECK_NEW_ORDER_SHEET
+- SAVE_ORDER_DETAIL_ID
+- CHECK_ORDER_DETAIL_ID_CHANGED
+- SAVE_ORDER_NUMBER
+- CHECK_ORDER_NUMBER_CHANGED
+- ENSURE_LOGIN_ALPHA <url>
+- EVAL <javascript>
+- CLICK_SNAPSHOT_TEXT <text>
+- CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT <text>
+- SELECT_CART_ITEM_BY_TEXT <text>
+- CLICK_ORDER_DETAIL_BY_STATUS <status>
+- CLICK_ORDER_DETAIL_WITH_ACTION <action>
+- APPLY_ORDER_STATUS_FILTER <status>
+- SUBMIT_CANCEL_REQUEST <reason>
+- SUBMIT_RETURN_REQUEST <reason>
+- SUBMIT_EXCHANGE_REQUEST <reason>
+- PRINT_ACTIVE_MODAL
+- CHECK_PAYMENT_RESULT
+- EXPECT_FAIL [pattern]
+- READ_OTP <account> [var]
 
 Rules:
 - Base test domain must be https://alpha.zigzag.kr/
-- Use test accounts only (testuser@example.com / correct_password)
-- Never trigger real payments
-- Use test_card_info for payment fields
+- Use test accounts only
+- ENSURE_LOGIN_ALPHA target must be an authenticated page such as https://alpha.zigzag.kr/checkout/orders
+- Prefer stable selectors: role=..., button[type=submit], input[name=...], #fixed-id
+- Do not use dynamic ids such as #awsui-input-0
+- Never trigger real payments; zero-payment flows only by default
 - Do not output CLICK confirm_payment
+- Include short # comments for major steps when useful
 - Output only the scenario commands, one per line
 """
 
@@ -74,13 +109,7 @@ def validate_scenario_text(scenario: str) -> None:
         action = tokens[0] if tokens else ""
         if action not in ALLOWED_ACTIONS:
             raise ValueError(f"line {line_no}: unknown action '{action}'")
-        args = tokens[1:]
-        if action in {"NAVIGATE", "CLICK", "WAIT_FOR", "CHECK"} and len(args) != 1:
-            raise ValueError(f"line {line_no}: {action} requires exactly 1 argument")
-        if action == "FILL" and len(args) < 2:
-            raise ValueError(f"line {line_no}: FILL requires field_id and value")
-        if action == "CLICK" and args[0] in BLOCKED_CLICK_TARGETS:
-            raise ValueError(f"line {line_no}: CLICK {args[0]} is blocked by safety policy")
+        validate_command(ScenarioCommand(line_no=line_no, action=action, args=tokens[1:]))
 
 
 def generate_scenario(prompt: str, model: str, max_tokens: int) -> str:

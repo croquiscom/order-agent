@@ -105,6 +105,7 @@ class DoctorCheck:
     detail: str = ""
     hint: str = ""
     duration_ms: int = 0
+    cached: bool = False
 
     def as_dict(self) -> dict[str, str]:
         return {
@@ -113,6 +114,8 @@ class DoctorCheck:
             "summary": self.summary,
             "detail": self.detail,
             "hint": self.hint,
+            "duration_ms": self.duration_ms,
+            "cached": self.cached,
         }
 
 
@@ -161,6 +164,8 @@ def collect_doctor_checks(launch_browser: bool = True, use_cache: bool = False) 
     if use_cache:
         cached = _read_cache()
         if cached is not None:
+            for check in cached:
+                check.cached = True
             return cached
 
     checks: list[DoctorCheck] = []
@@ -331,6 +336,7 @@ def doctor_summary(checks: Iterable[DoctorCheck]) -> dict[str, int | bool]:
         "fail": fail_count,
         "ok": fail_count == 0,
         "strict_ok": fail_count == 0 and warn_count == 0,
+        "cached": any(check.cached for check in items),
     }
 
 
@@ -360,7 +366,8 @@ def print_doctor_report(
         icon = _STATUS_ICON.get(check.status, " ")
         label = f"{icon} {check.status:<4}"
         timing = f"  [{check.duration_ms}ms]" if check.duration_ms >= 500 else ""
-        write(f"  {_colorize(check.status, label)}  {check.summary}{timing}\n")
+        cached_note = "  [cached]" if check.cached else ""
+        write(f"  {_colorize(check.status, label)}  {check.summary}{timing}{cached_note}\n")
         if check.detail:
             write(f"        {check.detail}\n")
         if check.hint:
@@ -380,49 +387,21 @@ def print_doctor_report(
 
 
 def auto_fix_checks(checks: list[DoctorCheck]) -> list[str]:
-    """Attempt to auto-remediate WARN/FAIL items where possible.
-
-    Returns a list of human-readable action strings describing what was done
-    or what the user must do manually.
-    """
+    """Attempt browser auto-launch remediation only."""
     actions: list[str] = []
     for check in checks:
         if check.status not in {"WARN", "FAIL"}:
             continue
 
-        if check.key == "env_file" and check.status == "WARN":
-            example = Path(".env.example")
-            if example.exists():
-                import shutil as _shutil
-                _shutil.copy(example, ".env")
-                actions.append("Copied .env.example -> .env  (review and fill in real values)")
-            else:
-                actions.append("Cannot auto-fix: .env.example not found. Create .env manually.")
-
-        elif check.key == "profile":
-            # mkdir is already done in collect_doctor_checks; nothing extra needed
-            actions.append(f"Profile directory already created: {check.detail}")
-
-        elif check.key == "agent_browser" and check.status == "FAIL":
-            actions.append("Cannot auto-fix: Run:  npm install -g agent-browser")
-
-        elif check.key == "chrome" and check.status == "FAIL":
-            actions.append(
-                "Cannot auto-fix: Install Chrome/Chromium and set AGENT_BROWSER_EXECUTABLE_PATH if needed."
-            )
-
-        elif check.key == "cdp" and check.status == "FAIL":
+        if check.key == "cdp" and check.status == "FAIL":
             try:
                 ok = _ensure_cdp_browser_ready()
                 if ok:
-                    actions.append("CDP: browser auto-launched successfully.")
+                    actions.append("Browser auto-launch succeeded for CDP.")
                 else:
-                    actions.append(
-                        "Cannot auto-fix CDP: browser launch failed. "
-                        "Run: ./scripts/run_scenario_chrome.sh <scenario.scn>"
-                    )
+                    actions.append("Browser auto-launch failed; manual browser start is still required.")
             except Exception as exc:
-                actions.append(f"Cannot auto-fix CDP: {exc}")
+                actions.append(f"Browser auto-launch failed: {exc}")
 
     return actions
 
@@ -446,7 +425,10 @@ def doctor_report_text(
     if quiet:
         filtered = [check for check in items if check.status != "PASS"]
         if not filtered:
-            return "PASS  All doctor checks passed.\n"
+            summary = "PASS  All doctor checks passed."
+            if any(check.cached for check in items):
+                summary += " [cached]"
+            return summary + "\n"
         lines = [f"{check.status:<4}  {check.summary}" for check in filtered]
         for check in filtered:
             if check.detail:

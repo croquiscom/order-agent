@@ -61,7 +61,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fix",
         action="store_true",
-        help="Attempt to auto-remediate WARN/FAIL items, then re-run checks to verify",
+        help="Attempt browser auto-launch remediation, then re-run checks to verify",
     )
     return parser.parse_args()
 
@@ -107,7 +107,7 @@ def _run_fix_mode(args: "argparse.Namespace") -> None:
         for action in actions:
             print(f"  {action}")
     else:
-        print("\n  No auto-fixable issues found.")
+        print("\n  No browser auto-launch fix was applicable.")
 
     print("\n--- After fix ---", flush=True)
     after_checks = collect_doctor_checks(launch_browser=launch, use_cache=False)

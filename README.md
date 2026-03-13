@@ -75,12 +75,23 @@ order-agent/
 
 | 액션 | 설명 |
 |---|---|
-| `ENSURE_LOGIN_ALPHA` | alpha 로그인 확인/자동 로그인 |
+| `ENSURE_LOGIN_ALPHA <url>` | alpha 로그인 확인/자동 로그인 |
 | `CHECK_NEW_ORDER_SHEET` | 주문서 생성 확인 |
+| `SAVE_ORDER_DETAIL_ID` | 주문상세 ID 저장 |
+| `CHECK_ORDER_DETAIL_ID_CHANGED` | 주문상세 ID 변경 확인 |
+| `SAVE_ORDER_NUMBER` | 주문번호 저장 |
+| `CHECK_ORDER_NUMBER_CHANGED` | 주문번호 변경 확인 |
 | `CLICK_SNAPSHOT_TEXT <text>` | 퍼지 텍스트 매칭 클릭 |
+| `CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT <text>` | 스냅샷 텍스트 앞 체크박스 클릭 |
+| `SELECT_CART_ITEM_BY_TEXT <text>` | 장바구니 아이템 선택 |
+| `CLICK_ORDER_DETAIL_BY_STATUS <status>` | 상태별 주문상세 진입 |
+| `CLICK_ORDER_DETAIL_WITH_ACTION <action>` | 액션 가능한 주문상세 진입 |
+| `APPLY_ORDER_STATUS_FILTER <status>` | 주문 상태 필터 적용 |
 | `SUBMIT_CANCEL_REQUEST <reason>` | 취소 요청 |
 | `SUBMIT_RETURN_REQUEST <reason>` | 반품 요청 |
 | `SUBMIT_EXCHANGE_REQUEST <reason>` | 교환 요청 |
+| `PRINT_ACTIVE_MODAL` | 현재 활성 모달 상태 출력 |
+| `CHECK_PAYMENT_RESULT` | 결제 결과 검증 |
 
 ### 변수 치환
 
@@ -89,6 +100,13 @@ order-agent/
 ```
 FILL input[name=orderNumber] {{order_number}}
 ```
+
+### 안전 정책
+
+- 기본 테스트 도메인은 `https://alpha.zigzag.kr/`
+- `CLICK confirm_payment`는 기본 차단된다
+- 실제 결제는 허용하지 않으며, 예외는 명시적 승인과 `ALLOW_REAL_PAYMENT=1`이 있을 때만 가능하다
+- 시나리오 작성 전 [`docs/input_interaction_patterns.md`](docs/input_interaction_patterns.md), [`docs/exchange_stabilization_plan.md`](docs/exchange_stabilization_plan.md) 확인을 권장한다
 
 ---
 

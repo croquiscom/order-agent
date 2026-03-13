@@ -16,13 +16,13 @@ argument-hint: "[scenario.scn]"
 ## Execution Steps
 
 1. $ARGUMENTS에 .scn 파일이 지정되면 해당 파일만, 없으면 전체를 검증:
-   - `services/zigzag/scenarios/*.scn`
-   - `services/naver/scenarios/*.scn`
+   - `scenarios/zigzag/*.scn`
+   - `scenarios/naver/*.scn`
 
 2. 각 파일에 대해 아래를 검증:
 
    a) **파싱 검증**: shlex.split 기반 토큰 파싱 정상 여부
-   b) **액션 검증**: ALLOWED_ACTIONS 포함 여부 (25개)
+   b) **액션 검증**: ALLOWED_ACTIONS 포함 여부 (현재 30개)
    c) **인자 수 검증**: 각 액션의 필수 인자 개수
    d) **안전 정책**: `CLICK confirm_payment` 차단 확인
    e) **드라이런**: `--dry-run` 모드로 CLI 변환까지 검증
@@ -37,7 +37,7 @@ argument-hint: "[scenario.scn]"
 
 - `/validate-scenario` — 전체 시나리오 검증
 - `/validate-scenario alpha_claim_exchange.scn` — 특정 파일 검증
-- `/validate-scenario services/naver/scenarios/smoke_naver.scn` — 네이버 시나리오
+- `/validate-scenario scenarios/naver/smoke_naver.scn` — 네이버 시나리오
 
 ---
 
