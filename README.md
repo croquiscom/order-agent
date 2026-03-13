@@ -15,6 +15,15 @@ CDP 기반 브라우저 에이전트 프레임워크.
 
 이후 `/list-scenarios`로 시나리오 목록 확인, `/run-scenario`로 실행.
 
+새 시나리오를 추가할 때:
+
+```
+/scenario-guide          # 작성 규칙/체크리스트 확인
+/new-scenario <설명>     # 가이드를 자동 참조하여 .scn 생성
+/validate-scenario       # 문법/안전정책 검증
+/run-scenario --dry-run  # 드라이런 후 실제 실행
+```
+
 **수동 설정**
 
 ```bash
@@ -118,3 +127,4 @@ FILL input[name=orderNumber] {{order_number}}
 | [`docs/manual-setup-guide.md`](docs/manual-setup-guide.md) | 수동 설정 가이드 |
 | [`docs/scenarios.md`](docs/scenarios.md) | 시나리오 인벤토리 |
 | [`docs/input_interaction_patterns.md`](docs/input_interaction_patterns.md) | 클레임 UI 입력 패턴 |
+| [`.claude/skills/scenario-guide/SKILL.md`](.claude/skills/scenario-guide/SKILL.md) | 시나리오 작성 가이드 및 체크리스트 |

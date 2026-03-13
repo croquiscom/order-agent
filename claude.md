@@ -181,6 +181,8 @@ URL 검증:
 - `normalize_selector()`는 `[`, `>` 포함 시 CSS 셀렉터로 인식하여 `@` 접두사를 붙이지 않음.
 
 ## 10) 시나리오 작업 시 필수 참조 문서
+- **시나리오 작성 종합 가이드**: `/scenario-guide` 스킬 (`.claude/skills/scenario-guide/SKILL.md`) — 구조 패턴, 셀렉터 전략, 안전 정책, 동기화 체크리스트 포함
+- **`/new-scenario` 실행 시 자동으로 가이드를 로딩**하므로 별도 참조 없이 시나리오 생성 가능
 - **시나리오 수정/생성/디버깅 전에 반드시 아래 문서를 먼저 읽을 것:**
   - `docs/input_interaction_patterns.md`: 클레임(교환/반품/취소) 플로우의 입력 UI 패턴, 셀렉터 전략, 결제 패턴, URL 분기 처리, 트러블슈팅
   - `docs/exchange_stabilization_plan.md`: 교환 시나리오 안정화 우선순위 및 완료 조건
