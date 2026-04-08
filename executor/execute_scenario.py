@@ -3178,9 +3178,13 @@ def run_scenario(
                     except (AgentBrowserError, RuntimeError):
                         logger.info("ENSURE_LOGIN_GRAFANA: no OTP step detected, skipping")
 
-                    # 7) 로그인 성공 확인
-                    cur = _grafana_current_url()
-                    if _grafana_is_login_page(cur) or _grafana_is_keycloak_page(cur):
+                    # 7) 로그인 성공 확인 — redirect 완료 대기
+                    for _wait in range(10):
+                        cur = _grafana_current_url()
+                        if not _grafana_is_login_page(cur) and not _grafana_is_keycloak_page(cur):
+                            break
+                        time.sleep(1.0)
+                    else:
                         raise RuntimeError(
                             f"ENSURE_LOGIN_GRAFANA failed: still on login/keycloak page after login attempt: {cur}"
                         )
