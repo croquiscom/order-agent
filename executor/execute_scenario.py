@@ -225,36 +225,54 @@ def _cdp_direct_fill(selector: str, value: str) -> None:
         ws = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=10)
         msg_id = 1
         try:
-            # Ctrl+A (전체 선택)
-            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                "type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2,
-            }}))
-            ws.recv(); msg_id += 1
-            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                "type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2,
-            }}))
-            ws.recv(); msg_id += 1
-            # Backspace (삭제)
-            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                "type": "keyDown", "key": "Backspace", "code": "Backspace",
-                "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
-            }}))
-            ws.recv(); msg_id += 1
-            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                "type": "keyUp", "key": "Backspace", "code": "Backspace",
-                "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
-            }}))
-            ws.recv(); msg_id += 1
-            # 한 글자씩 keyDown+keyUp 타이핑
-            for ch in value:
+            def _clear_and_type(ws, msg_id, value):
+                """필드 초기화 후 한 글자씩 타이핑. msg_id를 반환."""
+                # JS로 value 초기화 + 자동완성 비활성화 + 포커스 재확보
+                ws.send(json.dumps({"id": msg_id, "method": "Runtime.evaluate", "params": {
+                    "expression": (
+                        "(() => { const el = document.activeElement;"
+                        " if (el && el.tagName === 'INPUT') {"
+                        " el.value = ''; el.setAttribute('autocomplete', 'off');"
+                        " el.dispatchEvent(new Event('input', {bubbles: true}));"
+                        " el.focus();"
+                        " }"
+                        " })()"
+                    )
+                }}))
+                ws.recv(); msg_id += 1
+                # Ctrl+A (전체 선택) — JS 초기화 후에도 React state 잔존 대비
                 ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                    "type": "keyDown", "key": ch, "text": ch,
+                    "type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2,
                 }}))
                 ws.recv(); msg_id += 1
                 ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                    "type": "keyUp", "key": ch,
+                    "type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2,
                 }}))
                 ws.recv(); msg_id += 1
+                # Backspace (삭제)
+                ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                    "type": "keyDown", "key": "Backspace", "code": "Backspace",
+                    "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
+                }}))
+                ws.recv(); msg_id += 1
+                ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                    "type": "keyUp", "key": "Backspace", "code": "Backspace",
+                    "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
+                }}))
+                ws.recv(); msg_id += 1
+                # 한 글자씩 keyDown+keyUp 타이핑
+                for ch in value:
+                    ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                        "type": "keyDown", "key": ch, "text": ch,
+                    }}))
+                    ws.recv(); msg_id += 1
+                    ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                        "type": "keyUp", "key": ch,
+                    }}))
+                    ws.recv(); msg_id += 1
+                return msg_id
+
+            msg_id = _clear_and_type(ws, msg_id, value)
             # 입력 검증: 실제 입력된 값 확인
             ws.send(json.dumps({"id": msg_id, "method": "Runtime.evaluate", "params": {
                 "expression": "document.activeElement?.value || ''"
@@ -264,8 +282,21 @@ def _cdp_direct_fill(selector: str, value: str) -> None:
             if actual != value:
                 import logging as _log
                 _log.getLogger(__name__).warning(
-                    "CDP fill mismatch: expected=%r actual=%r", value, actual
+                    "CDP fill mismatch: expected=%r actual=%r — retrying", value, actual
                 )
+                # 재시도: 필드 초기화 후 다시 입력
+                msg_id += 1
+                msg_id = _clear_and_type(ws, msg_id, value)
+                # 재검증
+                ws.send(json.dumps({"id": msg_id, "method": "Runtime.evaluate", "params": {
+                    "expression": "document.activeElement?.value || ''"
+                }}))
+                verify2 = json.loads(ws.recv())
+                actual2 = verify2.get("result", {}).get("result", {}).get("value", "")
+                if actual2 != value:
+                    _log.getLogger(__name__).warning(
+                        "CDP fill mismatch after retry: expected=%r actual=%r", value, actual2
+                    )
         finally:
             ws.close()
     except Exception as exc:
@@ -3257,11 +3288,45 @@ def run_scenario(
                     url_out = agent_browser("get", "url", check=False)
                     title_out = agent_browser("get", "title", check=False)
                     screenshot_out = agent_browser("screenshot", f"{base}.png", check=False)
+                    # CDP로 쿠키 추출 (HttpOnly 포함)
+                    cookies_text = ""
+                    try:
+                        import json as _json
+                        import urllib.request as _urlreq
+                        from core.runner import _cdp_port
+                        _port = _cdp_port()
+                        _resp = _urlreq.urlopen(f"http://localhost:{_port}/json/list", timeout=5)
+                        _targets = _json.loads(_resp.read().decode())
+                        _page = next(
+                            (t for t in _targets if t["type"] == "page"
+                             and "chrome-extension://" not in t.get("url", "")),
+                            None,
+                        )
+                        if _page:
+                            import websocket as _ws
+                            _conn = _ws.create_connection(_page["webSocketDebuggerUrl"], timeout=10)
+                            _conn.send(_json.dumps({"id": 1, "method": "Network.getAllCookies"}))
+                            _result = _json.loads(_conn.recv())
+                            _cookies = _result.get("result", {}).get("cookies", [])
+                            # 현재 페이지 도메인의 쿠키만 필터
+                            _current_url = (url_out.stdout or "").strip()
+                            for _c in _cookies:
+                                _domain = _c.get("domain", "")
+                                if _domain and _domain.lstrip(".") in _current_url:
+                                    cookies_text += f"  {_c['name']}={_c['value']}"
+                                    cookies_text += f"  (httpOnly={_c.get('httpOnly', False)})\n"
+                                    logger.info("DUMP_STATE cookie: %s=%s (httpOnly=%s)",
+                                                _c["name"], _c["value"], _c.get("httpOnly", False))
+                            _conn.close()
+                    except Exception as _exc:
+                        logger.warning("DUMP_STATE cookie extraction failed: %s", _exc)
                     with open(f"{base}.txt", "w", encoding="utf-8") as f:
                         f.write("=== URL ===\n")
                         f.write(url_out.stdout or "")
                         f.write("\n=== TITLE ===\n")
                         f.write(title_out.stdout or "")
+                        f.write("\n=== COOKIES ===\n")
+                        f.write(cookies_text or "(none)\n")
                         f.write("\n=== SNAPSHOT(-i) ===\n")
                         f.write(snapshot.stdout or "")
                         f.write("\n=== ERRORS ===\n")

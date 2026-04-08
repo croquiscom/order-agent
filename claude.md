@@ -142,7 +142,7 @@ URL 검증:
 - Python 3.12+
 - 실행 시 `agent-browser` CLI가 PATH에 있어야 함.
 - `pip install -r requirements.txt` — `anthropic>=0.40.0`, `python-dotenv`, `websocket-client`
-- `.env` 파일 지원: `python-dotenv`로 자동 로드 (미설치 시 환경변수 직접 설정)
+- `.env` 파일 지원: `python-dotenv`로 자동 로드 (미설치 시 환경변수 직접 설정). 개인 계정/API 키 등 민감 정보는 `.env`에 저장 (`.gitignore` 포함, 상세: `docs/cli-reference.md`)
 - 시나리오 생성 시 `ANTHROPIC_API_KEY` 필요.
 - `ENSURE_LOGIN_ALPHA` 액션 사용 시 `ALPHA_USERNAME`/`ALPHA_PASSWORD` 환경변수 필요.
 - 테스트 실행: `python3 -m pytest -q`

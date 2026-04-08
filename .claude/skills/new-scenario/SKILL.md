@@ -71,14 +71,24 @@ argument-hint: "<자연어 시나리오 설명>"
 7. ENSURE_LOGIN_ALPHA target은 반드시 **인증 필수 페이지** 사용 (예: `/checkout/orders`)
    - 공개 페이지(`/catalog/products/...`)를 target으로 사용하면 세션 만료를 감지 못함
 
-8. 기존 시나리오(`scenarios/zigzag/*.scn`)를 참고하여 패턴을 맞춘다.
-   - 주문(바로구매): `alpha_direct_buy_order_normal.scn`
-   - 주문(장바구니): `alpha_cart_order_normal.scn`
-   - 교환: `alpha_claim_exchange.scn`
-   - 반품: `alpha_claim_return.scn`
-   - 취소: `alpha_claim_cancel.scn`
+8. 기존 시나리오를 참고하여 패턴을 맞춘다.
+   - 주문(바로구매): `scenarios/zigzag/alpha_direct_buy_order_normal.scn`
+   - 주문(장바구니): `scenarios/zigzag/alpha_cart_order_normal.scn`
+   - 교환: `scenarios/zigzag/alpha_claim_exchange.scn`
+   - 반품: `scenarios/zigzag/alpha_claim_return.scn`
+   - 취소: `scenarios/zigzag/alpha_claim_cancel.scn`
+   - 외부 서비스 로그인: `scenarios/aws/sso_login.scn`
 
-9. `scenarios/zigzag/`에 저장 후 `/validate-scenario`로 검증 권장.
+9. 카테고리에 맞는 디렉토리에 저장 후 `/validate-scenario`로 검증 권장.
+   - Zigzag 주문/클레임: `scenarios/zigzag/`
+   - AWS: `scenarios/aws/`
+   - 네이버: `scenarios/naver/`
+   - Grafana: `scenarios/grafana/`
+   - 기타 외부 서비스: `scenarios/<서비스명>/`
+
+10. **시나리오 문서 등록**: 생성한 시나리오를 아래 두 문서에 추가한다.
+    - `.claude/skills/list-scenarios/SKILL.md` — 해당 카테고리에 파일명 추가. 기존 카테고리가 없으면 새 섹션 추가
+    - `docs/scenarios.md` — Active Scenarios 목록에 번호·경로·목적·핵심 형식으로 추가
 
 ---
 
