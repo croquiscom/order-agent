@@ -1,7 +1,7 @@
 # 포인트 부족 상태 증적
 # 목적: 포인트 전액사용 불가/0원 버튼 미노출 상태를 증적 중심으로 확인
 
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
 WAIT_FOR 1200
 
 NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725

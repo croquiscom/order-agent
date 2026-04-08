@@ -41,7 +41,7 @@ ALLOWED_ACTIONS = {
     "CHECK_ORDER_DETAIL_ID_CHANGED",
     "SAVE_ORDER_NUMBER",
     "CHECK_ORDER_NUMBER_CHANGED",
-    "ENSURE_LOGIN_ALPHA",
+    "ENSURE_LOGIN_ZIGZAG_ALPHA",
     "EVAL",
     "CLICK_SNAPSHOT_TEXT",
     "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT",
@@ -56,6 +56,8 @@ ALLOWED_ACTIONS = {
     "CHECK_PAYMENT_RESULT",
     "EXPECT_FAIL",
     "READ_OTP",
+    "ENSURE_LOGIN_GRAFANA",
+    "ENSURE_LOGIN_AWS_SSO",
 }
 BLOCKED_CLICK_TARGETS = {"confirm_payment"}
 ORDER_SHEET_ID_PATTERN = re.compile(r"/checkout/order-sheets/([a-f0-9-]+)")
@@ -98,7 +100,11 @@ def validate_command(command: ScenarioCommand) -> None:
     args = command.args
     line_no = command.line_no
 
-    if action in {"NAVIGATE", "CLICK", "WAIT_FOR", "CHECK", "PRESS", "CHECK_URL", "CHECK_NOT_URL", "WAIT_URL", "DUMP_STATE", "EVAL", "ENSURE_LOGIN_ALPHA", "CLICK_SNAPSHOT_TEXT", "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT", "SELECT_CART_ITEM_BY_TEXT", "CLICK_ORDER_DETAIL_BY_STATUS", "CLICK_ORDER_DETAIL_WITH_ACTION", "APPLY_ORDER_STATUS_FILTER", "SUBMIT_CANCEL_REQUEST", "SUBMIT_RETURN_REQUEST", "SUBMIT_EXCHANGE_REQUEST"} and len(args) != 1:
+    if action in {"NAVIGATE", "CLICK", "WAIT_FOR", "CHECK", "PRESS", "CHECK_URL", "CHECK_NOT_URL", "WAIT_URL", "DUMP_STATE", "EVAL", "ENSURE_LOGIN_ZIGZAG_ALPHA", "CLICK_SNAPSHOT_TEXT", "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT", "SELECT_CART_ITEM_BY_TEXT", "CLICK_ORDER_DETAIL_BY_STATUS", "CLICK_ORDER_DETAIL_WITH_ACTION", "APPLY_ORDER_STATUS_FILTER", "SUBMIT_CANCEL_REQUEST", "SUBMIT_RETURN_REQUEST", "SUBMIT_EXCHANGE_REQUEST"} and len(args) != 1:
+        raise ValueError(f"line {line_no}: {action} requires exactly 1 argument")
+    if action == "ENSURE_LOGIN_GRAFANA" and len(args) > 1:
+        raise ValueError(f"line {line_no}: ENSURE_LOGIN_GRAFANA takes 0 or 1 argument (optional target URL)")
+    if action == "ENSURE_LOGIN_AWS_SSO" and len(args) > 1:
         raise ValueError(f"line {line_no}: {action} requires exactly 1 argument")
     if action == "PRINT_ACTIVE_MODAL" and len(args) != 0:
         raise ValueError(f"line {line_no}: PRINT_ACTIVE_MODAL requires no arguments")
@@ -225,36 +231,54 @@ def _cdp_direct_fill(selector: str, value: str) -> None:
         ws = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=10)
         msg_id = 1
         try:
-            # Ctrl+A (전체 선택)
-            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                "type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2,
-            }}))
-            ws.recv(); msg_id += 1
-            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                "type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2,
-            }}))
-            ws.recv(); msg_id += 1
-            # Backspace (삭제)
-            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                "type": "keyDown", "key": "Backspace", "code": "Backspace",
-                "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
-            }}))
-            ws.recv(); msg_id += 1
-            ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                "type": "keyUp", "key": "Backspace", "code": "Backspace",
-                "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
-            }}))
-            ws.recv(); msg_id += 1
-            # 한 글자씩 keyDown+keyUp 타이핑
-            for ch in value:
+            def _clear_and_type(ws, msg_id, value):
+                """필드 초기화 후 한 글자씩 타이핑. msg_id를 반환."""
+                # JS로 value 초기화 + 자동완성 비활성화 + 포커스 재확보
+                ws.send(json.dumps({"id": msg_id, "method": "Runtime.evaluate", "params": {
+                    "expression": (
+                        "(() => { const el = document.activeElement;"
+                        " if (el && el.tagName === 'INPUT') {"
+                        " el.value = ''; el.setAttribute('autocomplete', 'off');"
+                        " el.dispatchEvent(new Event('input', {bubbles: true}));"
+                        " el.focus();"
+                        " }"
+                        " })()"
+                    )
+                }}))
+                ws.recv(); msg_id += 1
+                # Ctrl+A (전체 선택) — JS 초기화 후에도 React state 잔존 대비
                 ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                    "type": "keyDown", "key": ch, "text": ch,
+                    "type": "keyDown", "key": "a", "code": "KeyA", "modifiers": 2,
                 }}))
                 ws.recv(); msg_id += 1
                 ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
-                    "type": "keyUp", "key": ch,
+                    "type": "keyUp", "key": "a", "code": "KeyA", "modifiers": 2,
                 }}))
                 ws.recv(); msg_id += 1
+                # Backspace (삭제)
+                ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                    "type": "keyDown", "key": "Backspace", "code": "Backspace",
+                    "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
+                }}))
+                ws.recv(); msg_id += 1
+                ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                    "type": "keyUp", "key": "Backspace", "code": "Backspace",
+                    "windowsVirtualKeyCode": 8, "nativeVirtualKeyCode": 8,
+                }}))
+                ws.recv(); msg_id += 1
+                # 한 글자씩 keyDown+keyUp 타이핑
+                for ch in value:
+                    ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                        "type": "keyDown", "key": ch, "text": ch,
+                    }}))
+                    ws.recv(); msg_id += 1
+                    ws.send(json.dumps({"id": msg_id, "method": "Input.dispatchKeyEvent", "params": {
+                        "type": "keyUp", "key": ch,
+                    }}))
+                    ws.recv(); msg_id += 1
+                return msg_id
+
+            msg_id = _clear_and_type(ws, msg_id, value)
             # 입력 검증: 실제 입력된 값 확인
             ws.send(json.dumps({"id": msg_id, "method": "Runtime.evaluate", "params": {
                 "expression": "document.activeElement?.value || ''"
@@ -264,8 +288,21 @@ def _cdp_direct_fill(selector: str, value: str) -> None:
             if actual != value:
                 import logging as _log
                 _log.getLogger(__name__).warning(
-                    "CDP fill mismatch: expected=%r actual=%r", value, actual
+                    "CDP fill mismatch: expected=%r actual=%r — retrying", value, actual
                 )
+                # 재시도: 필드 초기화 후 다시 입력
+                msg_id += 1
+                msg_id = _clear_and_type(ws, msg_id, value)
+                # 재검증
+                ws.send(json.dumps({"id": msg_id, "method": "Runtime.evaluate", "params": {
+                    "expression": "document.activeElement?.value || ''"
+                }}))
+                verify2 = json.loads(ws.recv())
+                actual2 = verify2.get("result", {}).get("result", {}).get("value", "")
+                if actual2 != value:
+                    _log.getLogger(__name__).warning(
+                        "CDP fill mismatch after retry: expected=%r actual=%r", value, actual2
+                    )
         finally:
             ws.close()
     except Exception as exc:
@@ -2853,7 +2890,9 @@ def run_scenario(
                 "CHECK_ORDER_DETAIL_ID_CHANGED",
                 "SAVE_ORDER_NUMBER",
                 "CHECK_ORDER_NUMBER_CHANGED",
-                "ENSURE_LOGIN_ALPHA",
+                "ENSURE_LOGIN_ZIGZAG_ALPHA",
+                "ENSURE_LOGIN_GRAFANA",
+                "ENSURE_LOGIN_AWS_SSO",
                 "CLICK_SNAPSHOT_TEXT",
                 "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT",
                 "SELECT_CART_ITEM_BY_TEXT",
@@ -2883,8 +2922,14 @@ def run_scenario(
                     "CHECK_PAYMENT_RESULT",
                 }:
                     logger.info("[DRY-RUN] %s", command.action)
-                elif command.action == "ENSURE_LOGIN_ALPHA":
-                    logger.info("[DRY-RUN] ENSURE_LOGIN_ALPHA '%s'", command.args[0])
+                elif command.action == "ENSURE_LOGIN_ZIGZAG_ALPHA":
+                    logger.info("[DRY-RUN] ENSURE_LOGIN_ZIGZAG_ALPHA '%s'", command.args[0])
+                elif command.action == "ENSURE_LOGIN_GRAFANA":
+                    target = command.args[0] if command.args else "https://grafana.zigzag.in/"
+                    logger.info("[DRY-RUN] ENSURE_LOGIN_GRAFANA '%s'", target)
+                elif command.action == "ENSURE_LOGIN_AWS_SSO":
+                    target = command.args[0] if command.args else "https://kakaostyle.awsapps.com/start"
+                    logger.info("[DRY-RUN] ENSURE_LOGIN_AWS_SSO '%s'", target)
                 elif command.action == "CLICK_SNAPSHOT_TEXT":
                     logger.info("[DRY-RUN] CLICK_SNAPSHOT_TEXT '%s'", command.args[0])
                 elif command.action == "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT":
@@ -2920,14 +2965,14 @@ def run_scenario(
                     logger.info("READ_OTP: account='%s' -> {{%s}} = %s", account_name, var_name, otp_code)
                     continue
 
-                if command.action != "ENSURE_LOGIN_ALPHA" and _page_has_upstream_error():
+                if command.action not in {"ENSURE_LOGIN_ZIGZAG_ALPHA", "ENSURE_LOGIN_GRAFANA", "ENSURE_LOGIN_AWS_SSO"} and _page_has_upstream_error():
                     logger.warning("Detected upstream error before line %s. Trying in-place recovery.", command.line_no)
                     if not _recover_from_upstream_error(max_retries=3):
                         raise RuntimeError(
                             "ENV_UPSTREAM_UNHEALTHY: upstream error page persists after recovery retries"
                         )
 
-                if command.action == "ENSURE_LOGIN_ALPHA":
+                if command.action == "ENSURE_LOGIN_ZIGZAG_ALPHA":
                     target_url = command.args[0]
                     target_path = urllib.parse.urlparse(target_url).path or target_url
                     def _current_url() -> str:
@@ -2975,7 +3020,7 @@ def run_scenario(
                                 current_url = _current_url()
                                 logger.info("Already-logged-in notice handled. Redirected to: %s", current_url)
                             if not _is_login_url(current_url):
-                                logger.info("ENSURE_LOGIN_ALPHA passed via already-logged-in notice: %s", current_url)
+                                logger.info("ENSURE_LOGIN_ZIGZAG_ALPHA passed via already-logged-in notice: %s", current_url)
                                 continue
 
                         logger.warning("Login required. Running alpha re-login flow.")
@@ -2984,11 +3029,11 @@ def run_scenario(
                         time.sleep(0.8)
 
                         # 로그인 페이지를 벗어나지 않고 동일 화면에서 1~2회만 시도
-                        alpha_user = os.environ.get("ALPHA_USERNAME")
-                        alpha_pass = os.environ.get("ALPHA_PASSWORD")
+                        alpha_user = os.environ.get("ZIGZAG_ALPHA_USERNAME")
+                        alpha_pass = os.environ.get("ZIGZAG_ALPHA_PASSWORD")
                         if not alpha_user or not alpha_pass:
                             raise RuntimeError(
-                                "ENSURE_LOGIN_ALPHA failed: ALPHA_USERNAME / ALPHA_PASSWORD 환경변수가 설정되지 않았습니다. "
+                                "ENSURE_LOGIN_ZIGZAG_ALPHA failed: ZIGZAG_ALPHA_USERNAME / ZIGZAG_ALPHA_PASSWORD 환경변수가 설정되지 않았습니다. "
                                 ".env.example을 참고하여 .env 파일을 생성하세요."
                             )
 
@@ -3004,13 +3049,13 @@ def run_scenario(
                                 login_fallback = agent_browser("click", "text=로그인", check=False)
                                 login_clicked = login_fallback.returncode == 0
                             if not login_clicked:
-                                raise RuntimeError("ENSURE_LOGIN_ALPHA failed: unable to click login button")
+                                raise RuntimeError("ENSURE_LOGIN_ZIGZAG_ALPHA failed: unable to click login button")
 
                             time.sleep(2.2)
                             current_url = _current_url()
                             if "/auth/error" in current_url and "type=login" in current_url:
                                 raise RuntimeError(
-                                    "ENSURE_LOGIN_ALPHA failed: login blocked by auth/error. "
+                                    "ENSURE_LOGIN_ZIGZAG_ALPHA failed: login blocked by auth/error. "
                                     "Manual login is required in this environment."
                                 )
                             if not _is_login_url(current_url):
@@ -3019,7 +3064,7 @@ def run_scenario(
                             logger.warning("Login attempt %s did not finish. Retrying once.", attempt)
 
                         if not login_ok:
-                            raise RuntimeError("ENSURE_LOGIN_ALPHA failed: still on login page after retry")
+                            raise RuntimeError("ENSURE_LOGIN_ZIGZAG_ALPHA failed: still on login page after retry")
 
                         # 로그인 성공 후 target으로 1회 이동
                         if target_url not in current_url:
@@ -3033,7 +3078,7 @@ def run_scenario(
                                 current_url = _current_url()
                                 if target_path in current_url:
                                     break
-                        logger.info("ENSURE_LOGIN_ALPHA passed after re-login: %s", current_url)
+                        logger.info("ENSURE_LOGIN_ZIGZAG_ALPHA passed after re-login: %s", current_url)
                     else:
                         if target_path not in current_url:
                             for _ in range(3):
@@ -3042,7 +3087,181 @@ def run_scenario(
                                 current_url = _current_url()
                                 if target_path in current_url:
                                     break
-                        logger.info("ENSURE_LOGIN_ALPHA passed (already logged in): %s", current_url)
+                        logger.info("ENSURE_LOGIN_ZIGZAG_ALPHA passed (already logged in): %s", current_url)
+                    continue
+
+                if command.action == "ENSURE_LOGIN_GRAFANA":
+                    # Grafana Keycloak-OAuth + OTP 로그인 보장
+                    grafana_target = command.args[0] if command.args else "https://grafana.zigzag.in/"
+                    grafana_user = os.environ.get("GRAFANA_USERNAME")
+                    grafana_pass = os.environ.get("GRAFANA_PASSWORD")
+                    if not grafana_user or not grafana_pass:
+                        raise RuntimeError(
+                            "ENSURE_LOGIN_GRAFANA failed: GRAFANA_USERNAME / GRAFANA_PASSWORD 환경변수가 설정되지 않았습니다. "
+                            ".env 파일에 추가하세요."
+                        )
+
+                    def _grafana_current_url() -> str:
+                        return agent_browser("get", "url", check=True).stdout.strip()
+
+                    def _grafana_is_login_page(url: str) -> bool:
+                        return "/login" in url and "grafana" in url
+
+                    def _grafana_is_keycloak_page(url: str) -> bool:
+                        return "keycloak" in url and ("/auth/" in url or "/login-actions/" in url)
+
+                    # 1) 먼저 로그인 상태 확인
+                    _safe_open_url(grafana_target, retries=5)
+                    time.sleep(2.0)
+                    cur = _grafana_current_url()
+                    if not _grafana_is_login_page(cur) and not _grafana_is_keycloak_page(cur):
+                        # 이미 로그인 상태 — 로그아웃하지 않고 바로 pass
+                        logger.info("ENSURE_LOGIN_GRAFANA passed (already logged in): %s", cur)
+                        continue
+
+                    # 2) 로그인 필요 — Keycloak SSO 세션 초기화 후 로그인
+                    _safe_open_url("https://grafana.zigzag.in/logout", retries=3)
+                    time.sleep(2.0)
+                    _safe_open_url(
+                        "https://keycloak.kakaostyle.in/auth/realms/master/protocol/openid-connect/logout",
+                        retries=3,
+                    )
+                    time.sleep(2.0)
+                    try:
+                        _click_by_snapshot_text("Logout", retry_on_overlay=False)
+                    except Exception:
+                        logger.info("Keycloak logout button not found (may already be logged out)")
+                    time.sleep(2.0)
+
+                    # 3) Grafana 로그인 페이지 접속
+                    _safe_open_url("https://grafana.zigzag.in/login", retries=5)
+                    time.sleep(2.0)
+
+                    # 4) Keycloak-OAuth 버튼 클릭
+                    _click_by_snapshot_text("Sign in with Keycloak-OAuth", retry_on_overlay=retry_on_overlay)
+                    time.sleep(3.0)
+
+                    # 5) Keycloak 로그인 폼 입력
+                    cur = _grafana_current_url()
+                    if _grafana_is_keycloak_page(cur):
+                        # username
+                        agent_browser("click", "input[name=username]", check=True)
+                        time.sleep(0.3)
+                        _cdp_direct_fill("input[name=username]", grafana_user)
+                        # password
+                        agent_browser("click", "input[name=password]", check=True)
+                        time.sleep(0.3)
+                        _cdp_direct_fill("input[name=password]", grafana_pass)
+                        # Sign In
+                        agent_browser("click", "input[type=submit]", check=True)
+                        time.sleep(3.0)
+                    else:
+                        raise RuntimeError(
+                            f"ENSURE_LOGIN_GRAFANA failed: expected Keycloak login page, got {cur}"
+                        )
+
+                    # 6) OTP 입력
+                    cur = _grafana_current_url()
+                    if _grafana_is_keycloak_page(cur) and "otp" in cur.lower() or "totp" in cur.lower():
+                        pass  # OTP 페이지 감지
+                    # Keycloak OTP 페이지는 URL 변경 없이 폼만 교체될 수 있으므로 input[name=otp] 존재로 판단
+                    try:
+                        agent_browser("check", "input[name=otp]", check=True)
+                        from core.otp_reader import read_otp
+                        otp_code = read_otp("deploy")
+                        agent_browser("click", "input[name=otp]", check=True)
+                        time.sleep(0.3)
+                        _cdp_direct_fill("input[name=otp]", otp_code)
+                        agent_browser("click", "input[type=submit]", check=True)
+                        time.sleep(5.0)
+                        logger.info("ENSURE_LOGIN_GRAFANA: OTP submitted")
+                    except (AgentBrowserError, RuntimeError):
+                        logger.info("ENSURE_LOGIN_GRAFANA: no OTP step detected, skipping")
+
+                    # 7) 로그인 성공 확인 — redirect 완료 대기
+                    for _wait in range(10):
+                        cur = _grafana_current_url()
+                        if not _grafana_is_login_page(cur) and not _grafana_is_keycloak_page(cur):
+                            break
+                        time.sleep(1.0)
+                    else:
+                        raise RuntimeError(
+                            f"ENSURE_LOGIN_GRAFANA failed: still on login/keycloak page after login attempt: {cur}"
+                        )
+
+                    # 8) target으로 이동
+                    if grafana_target and grafana_target not in cur:
+                        _safe_open_url(grafana_target, retries=3)
+                        time.sleep(1.0)
+
+                    logger.info("ENSURE_LOGIN_GRAFANA passed: %s", _grafana_current_url())
+                    continue
+
+                if command.action == "ENSURE_LOGIN_AWS_SSO":
+                    # AWS SSO 포털 로그인 보장 (username → password → OTP)
+                    aws_target = command.args[0] if command.args else "https://kakaostyle.awsapps.com/start"
+                    aws_user = os.environ.get("AWS_SSO_USERNAME")
+                    aws_pass = os.environ.get("AWS_SSO_PASSWORD")
+                    if not aws_user or not aws_pass:
+                        raise RuntimeError(
+                            "ENSURE_LOGIN_AWS_SSO failed: AWS_SSO_USERNAME / AWS_SSO_PASSWORD 환경변수가 설정되지 않았습니다. "
+                            ".env 파일에 추가하세요."
+                        )
+
+                    def _aws_current_url() -> str:
+                        return agent_browser("get", "url", check=True).stdout.strip()
+
+                    # 1) AWS SSO 포털 접속
+                    _safe_open_url(aws_target, retries=5)
+                    time.sleep(2.0)
+
+                    cur = _aws_current_url()
+                    if "awsapps.com/start" in cur and "/start#/" in cur:
+                        # 이미 로그인 상태
+                        logger.info("ENSURE_LOGIN_AWS_SSO passed (already logged in): %s", cur)
+                        continue
+
+                    # 2) 계정(이메일) 입력
+                    agent_browser("wait", "role=textbox", check=True)
+                    time.sleep(0.5)
+                    agent_browser("click", "role=textbox", check=True)
+                    time.sleep(0.3)
+                    _cdp_direct_fill("role=textbox", aws_user)
+                    agent_browser("click", "button[type=submit]", check=True)
+                    time.sleep(3.0)
+
+                    # 3) 비밀번호 입력
+                    agent_browser("wait", "role=textbox", check=True)
+                    time.sleep(0.5)
+                    agent_browser("click", "role=textbox", check=True)
+                    time.sleep(0.3)
+                    _cdp_direct_fill("role=textbox", aws_pass)
+                    agent_browser("click", "button[type=submit]", check=True)
+                    time.sleep(3.0)
+
+                    # 4) OTP 입력
+                    try:
+                        agent_browser("wait", "role=textbox", check=True)
+                        from core.otp_reader import read_otp
+                        otp_code = read_otp("AWS SSO")
+                        time.sleep(0.5)
+                        agent_browser("click", "role=textbox", check=True)
+                        time.sleep(0.3)
+                        _cdp_direct_fill("role=textbox", otp_code)
+                        agent_browser("click", "button[type=submit]", check=True)
+                        time.sleep(5.0)
+                        logger.info("ENSURE_LOGIN_AWS_SSO: OTP submitted")
+                    except (AgentBrowserError, RuntimeError):
+                        logger.info("ENSURE_LOGIN_AWS_SSO: no OTP step detected, skipping")
+
+                    # 5) 로그인 완료 확인
+                    cur = _aws_current_url()
+                    if "awsapps.com/start" not in cur:
+                        raise RuntimeError(
+                            f"ENSURE_LOGIN_AWS_SSO failed: expected AWS SSO portal, got {cur}"
+                        )
+
+                    logger.info("ENSURE_LOGIN_AWS_SSO passed: %s", cur)
                     continue
 
                 if command.action == "CLICK_SNAPSHOT_TEXT":
@@ -3257,11 +3476,45 @@ def run_scenario(
                     url_out = agent_browser("get", "url", check=False)
                     title_out = agent_browser("get", "title", check=False)
                     screenshot_out = agent_browser("screenshot", f"{base}.png", check=False)
+                    # CDP로 쿠키 추출 (HttpOnly 포함)
+                    cookies_text = ""
+                    try:
+                        import json as _json
+                        import urllib.request as _urlreq
+                        from core.runner import _cdp_port
+                        _port = _cdp_port()
+                        _resp = _urlreq.urlopen(f"http://localhost:{_port}/json/list", timeout=5)
+                        _targets = _json.loads(_resp.read().decode())
+                        _page = next(
+                            (t for t in _targets if t["type"] == "page"
+                             and "chrome-extension://" not in t.get("url", "")),
+                            None,
+                        )
+                        if _page:
+                            import websocket as _ws
+                            _conn = _ws.create_connection(_page["webSocketDebuggerUrl"], timeout=10)
+                            _conn.send(_json.dumps({"id": 1, "method": "Network.getAllCookies"}))
+                            _result = _json.loads(_conn.recv())
+                            _cookies = _result.get("result", {}).get("cookies", [])
+                            # 현재 페이지 도메인의 쿠키만 필터
+                            _current_url = (url_out.stdout or "").strip()
+                            for _c in _cookies:
+                                _domain = _c.get("domain", "")
+                                if _domain and _domain.lstrip(".") in _current_url:
+                                    cookies_text += f"  {_c['name']}={_c['value']}"
+                                    cookies_text += f"  (httpOnly={_c.get('httpOnly', False)})\n"
+                                    logger.info("DUMP_STATE cookie: %s=%s (httpOnly=%s)",
+                                                _c["name"], _c["value"], _c.get("httpOnly", False))
+                            _conn.close()
+                    except Exception as _exc:
+                        logger.warning("DUMP_STATE cookie extraction failed: %s", _exc)
                     with open(f"{base}.txt", "w", encoding="utf-8") as f:
                         f.write("=== URL ===\n")
                         f.write(url_out.stdout or "")
                         f.write("\n=== TITLE ===\n")
                         f.write(title_out.stdout or "")
+                        f.write("\n=== COOKIES ===\n")
+                        f.write(cookies_text or "(none)\n")
                         f.write("\n=== SNAPSHOT(-i) ===\n")
                         f.write(snapshot.stdout or "")
                         f.write("\n=== ERRORS ===\n")

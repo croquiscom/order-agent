@@ -41,7 +41,9 @@ Allowed actions:
 - CHECK_ORDER_DETAIL_ID_CHANGED
 - SAVE_ORDER_NUMBER
 - CHECK_ORDER_NUMBER_CHANGED
-- ENSURE_LOGIN_ALPHA <url>
+- ENSURE_LOGIN_ZIGZAG_ALPHA <url>
+- ENSURE_LOGIN_GRAFANA [url]
+- ENSURE_LOGIN_AWS_SSO [url]
 - EVAL <javascript>
 - CLICK_SNAPSHOT_TEXT <text>
 - CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT <text>
@@ -60,7 +62,9 @@ Allowed actions:
 Rules:
 - Base test domain must be https://alpha.zigzag.kr/
 - Use test accounts only
-- ENSURE_LOGIN_ALPHA target must be an authenticated page such as https://alpha.zigzag.kr/checkout/orders
+- ENSURE_LOGIN_ZIGZAG_ALPHA target must be an authenticated page such as https://alpha.zigzag.kr/checkout/orders
+- ENSURE_LOGIN_GRAFANA handles Keycloak-OAuth + OTP login using GRAFANA_USERNAME/GRAFANA_PASSWORD env vars
+- ENSURE_LOGIN_AWS_SSO handles AWS SSO portal login with OTP using AWS_SSO_USERNAME/AWS_SSO_PASSWORD env vars
 - Prefer stable selectors: role=..., button[type=submit], input[name=...], #fixed-id
 - Do not use dynamic ids such as #awsui-input-0
 - Never trigger real payments; zero-payment flows only by default

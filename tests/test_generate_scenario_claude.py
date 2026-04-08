@@ -16,7 +16,7 @@ def test_validate_scenario_text_accepts_extended_actions():
     validate_scenario_text(
         "\n".join(
             [
-                "ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders",
+                "ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders",
                 "SAVE_ORDER_NUMBER",
                 "NAVIGATE https://alpha.zigzag.kr/cart",
                 "WAIT_FOR 1000",

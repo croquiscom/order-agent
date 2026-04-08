@@ -25,7 +25,7 @@ fi
 python3 executor/doctor.py "${DOCTOR_ARGS[@]}" "$@"
 
 echo "[setup] next steps:"
-echo "  1. Fill ALPHA_USERNAME / ALPHA_PASSWORD in .env"
+echo "  1. Fill ZIGZAG_ALPHA_USERNAME / ZIGZAG_ALPHA_PASSWORD in .env"
 echo "  2. Re-run ./scripts/doctor.sh until all FAIL items are cleared"
 echo "     - strict mode: ./scripts/setup_env.sh --strict"
 echo "     - JSON output: python3 executor/doctor.py --json"

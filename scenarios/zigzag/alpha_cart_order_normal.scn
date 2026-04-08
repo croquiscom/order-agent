@@ -2,7 +2,7 @@
 # 기본 플로우: 사이트 접속 -> 상품페이지 -> 옵션선택 -> 장바구니 -> 포인트 전액 -> 결제완료
 # 성공 기준: 결제 전/후 최신 orderNumber(주문번호) 변경
 
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
 WAIT_FOR 3500
 EVAL "(() => { const btn = [...document.querySelectorAll('button')].find(b => (b.textContent || '').includes('주문상세 보기')); if (!btn) return 'no_order_detail_button'; btn.click(); return 'clicked_order_detail'; })()"
 WAIT_URL /checkout/orders

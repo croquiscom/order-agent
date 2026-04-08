@@ -49,7 +49,7 @@ which agent-browser 2>/dev/null && agent-browser --version 2>/dev/null
    ```bash
    cp .env.example .env
    ```
-3. `ALPHA_USERNAME`과 `ALPHA_PASSWORD`가 플레이스홀더 상태인지 확인
+3. `ZIGZAG_ALPHA_USERNAME`과 `ZIGZAG_ALPHA_PASSWORD`가 플레이스홀더 상태인지 확인
 4. 플레이스홀더면: 사용자에게 실제 값 입력 요청 (AskUserQuestion 사용)
 5. 값이 입력되면 `.env` 파일 업데이트
 

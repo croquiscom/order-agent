@@ -84,7 +84,7 @@ order-agent/
 
 | 액션 | 설명 |
 |---|---|
-| `ENSURE_LOGIN_ALPHA <url>` | alpha 로그인 확인/자동 로그인 |
+| `ENSURE_LOGIN_ZIGZAG_ALPHA <url>` | alpha 로그인 확인/자동 로그인 |
 | `CHECK_NEW_ORDER_SHEET` | 주문서 생성 확인 |
 | `SAVE_ORDER_DETAIL_ID` | 주문상세 ID 저장 |
 | `CHECK_ORDER_DETAIL_ID_CHANGED` | 주문상세 ID 변경 확인 |

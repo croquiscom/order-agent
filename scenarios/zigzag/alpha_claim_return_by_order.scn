@@ -3,7 +3,7 @@
 # 목적: 특정 주문번호의 주문 상세 진입 후 반품 요청 → 비용 결제 완료까지 검증
 
 # 1) 주문 상세 직접 진입
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders/{{order_number}}
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders/{{order_number}}
 NAVIGATE https://alpha.zigzag.kr/checkout/orders/{{order_number}}
 WAIT_FOR 1500
 

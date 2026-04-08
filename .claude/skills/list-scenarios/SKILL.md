@@ -35,6 +35,9 @@ description: "Lists all available .scn test scenarios with Korean descriptions g
    ### AWS (`scenarios/aws/`)
    - `*_login.scn`
 
+   ### Grafana (`scenarios/grafana/`)
+   - `login.scn`
+
 4. 목록에 없는 새 `.scn` 파일이 발견되면 해당 카테고리에 자동 추가한다.
 
 5. 목록 출력 후 안내:

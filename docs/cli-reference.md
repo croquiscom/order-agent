@@ -33,6 +33,29 @@ make doctor-strict
 
 ## 환경변수
 
+### `.env` 파일
+
+개인 계정, API 키 등 민감 정보는 프로젝트 루트의 `.env` 파일에 저장한다.
+`.env`는 `.gitignore`에 포함되어 있어 Git에 커밋되지 않으므로 각자 로컬에서 관리한다.
+
+- `python-dotenv`로 자동 로드 (시나리오 실행 시 별도 설정 없이 적용)
+- `.env.example`이 있으면 복사 후 값을 채워 사용
+- 시나리오의 `--var key=value` 옵션으로 전달하는 값도 `.env`에 설정하면 매번 입력할 필요 없음
+
+```bash
+# .env 예시 (이 파일은 Git에 커밋되지 않음)
+ZIGZAG_ALPHA_USERNAME=your_email@example.com
+ZIGZAG_ALPHA_PASSWORD=your_password
+ANTHROPIC_API_KEY=sk-ant-...
+```
+
+> **주의**: `.env` 파일에 계정 정보를 저장할 때는 파일 권한을 `600`으로 설정하는 것을 권장한다.
+> ```bash
+> chmod 600 .env
+> ```
+
+---
+
 **브라우저**
 
 | 환경변수 | 기본값 | 설명 |
@@ -58,8 +81,12 @@ make doctor-strict
 
 | 환경변수 | 기본값 | 설명 |
 |---|---|---|
-| `ALPHA_USERNAME` | (필수) | alpha.zigzag.kr 테스트 계정 이메일 |
-| `ALPHA_PASSWORD` | (필수) | alpha.zigzag.kr 테스트 계정 비밀번호 |
+| `ZIGZAG_ALPHA_USERNAME` | (필수) | alpha.zigzag.kr 테스트 계정 이메일 |
+| `ZIGZAG_ALPHA_PASSWORD` | (필수) | alpha.zigzag.kr 테스트 계정 비밀번호 |
+| `GRAFANA_USERNAME` | | Grafana (Keycloak) 로그인 유저네임 |
+| `GRAFANA_PASSWORD` | | Grafana (Keycloak) 로그인 비밀번호 |
+| `AWS_SSO_USERNAME` | | AWS SSO 포털 로그인 유저네임 |
+| `AWS_SSO_PASSWORD` | | AWS SSO 포털 로그인 비밀번호 |
 | `ANTHROPIC_API_KEY` | | 시나리오 자동 생성 시 필요 |
 
 **안전**
