@@ -83,6 +83,8 @@ ANTHROPIC_API_KEY=sk-ant-...
 |---|---|---|
 | `ALPHA_USERNAME` | (필수) | alpha.zigzag.kr 테스트 계정 이메일 |
 | `ALPHA_PASSWORD` | (필수) | alpha.zigzag.kr 테스트 계정 비밀번호 |
+| `GRAFANA_USERNAME` | | Grafana (Keycloak) 로그인 유저네임 |
+| `GRAFANA_PASSWORD` | | Grafana (Keycloak) 로그인 비밀번호 |
 | `ANTHROPIC_API_KEY` | | 시나리오 자동 생성 시 필요 |
 
 **안전**

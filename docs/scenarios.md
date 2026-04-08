@@ -103,7 +103,7 @@
 
 27. `scenarios/grafana/login.scn`
 - 목적: Grafana 로그인 (Keycloak-OAuth + OTP)
-- 핵심: Keycloak SSO 세션 초기화 → OAuth 로그인 → OTP 자동 입력 (`READ_OTP "deploy"`) → 세션 정보 추출 (`DUMP_STATE`)
+- 핵심: `ENSURE_LOGIN_GRAFANA` 전용 액션으로 Keycloak SSO 세션 초기화 → OAuth 로그인 → OTP 자동 입력 → 세션 정보 추출 (`DUMP_STATE`). `GRAFANA_USERNAME`/`GRAFANA_PASSWORD` 환경변수 사용
 
 ## 운영 원칙
 

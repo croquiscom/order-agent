@@ -1,49 +1,15 @@
 # Grafana 로그인 시나리오 (Keycloak-OAuth + OTP)
-# 사용법: python3 executor/execute_scenario.py scenarios/grafana/login.scn \
-#          --var username=YOUR_USERNAME --var password=YOUR_PASSWORD
+# 사용법: python3 executor/execute_scenario.py scenarios/grafana/login.scn
 #
-# Keycloak SSO 세션이 남아있으면 자동 로그인되므로
-# Grafana + Keycloak 세션을 모두 초기화 후 로그인합니다.
+# GRAFANA_USERNAME / GRAFANA_PASSWORD 환경변수를 .env에 설정해야 합니다.
+# OTP는 Authenticator 확장프로그램의 "deploy" 계정에서 자동 읽기합니다.
 
-# 1) 기존 세션 초기화
-NAVIGATE https://grafana.zigzag.in/logout
-WAIT_FOR 2000
+# 1) Grafana 로그인 보장 (Keycloak-OAuth + OTP 자동 처리)
+ENSURE_LOGIN_GRAFANA https://grafana.zigzag.in/
 
-# 2) Keycloak SSO 세션 로그아웃 (확인 버튼 클릭 필요)
-NAVIGATE https://keycloak.kakaostyle.in/auth/realms/master/protocol/openid-connect/logout
-WAIT_FOR 2000
-CLICK_SNAPSHOT_TEXT "Logout"
-WAIT_FOR 2000
-
-# 3) Grafana 로그인 페이지 접속
-NAVIGATE https://grafana.zigzag.in/login
-
-# 4) Keycloak-OAuth 로그인 버튼 클릭
-WAIT_FOR 2000
-CLICK_SNAPSHOT_TEXT "Sign in with Keycloak-OAuth"
-
-# 5) Keycloak 로그인 폼 대기
-WAIT_FOR 3000
-
-# 6) 유저네임 입력
-FILL input[name=username] {{username}}
-
-# 7) 비밀번호 입력
-FILL input[name=password] {{password}}
-
-# 8) Sign In 버튼 클릭
-CLICK input[type=submit]
-
-# 9) OTP 입력 - Authenticator 확장프로그램에서 자동 읽기
-WAIT_FOR 3000
-READ_OTP "deploy" otp
-FILL input[name=otp] {{otp}}
-CLICK input[type=submit]
-
-# 10) Grafana 대시보드 진입 확인
-WAIT_FOR 5000
+# 2) Grafana 대시보드 진입 확인
 CHECK_URL grafana.zigzag.in
 CHECK_NOT_URL /login
 
-# 11) 세션 정보 추출 (grafana_session, grafana_session_expiry 포함)
+# 3) 세션 정보 추출 (grafana_session, grafana_session_expiry 포함)
 DUMP_STATE grafana_session

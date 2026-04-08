@@ -44,6 +44,7 @@ argument-hint: "<자연어 시나리오 설명>"
    | CHECK_ORDER_NUMBER_CHANGED | 없음 | 주문번호 변경 확인 |
    | EVAL | js_expression | JavaScript 실행 |
    | ENSURE_LOGIN_ALPHA | url | 알파 로그인 보장 (인증 필수 URL 사용) |
+   | ENSURE_LOGIN_GRAFANA | [url] | Grafana Keycloak-OAuth+OTP 로그인 보장 (GRAFANA_USERNAME/GRAFANA_PASSWORD 환경변수) |
    | CLICK_SNAPSHOT_TEXT | text | 스냅샷 텍스트 클릭 |
    | CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT | text | 스냅샷 텍스트 앞 체크박스 클릭 |
    | SELECT_CART_ITEM_BY_TEXT | text | 장바구니 아이템 선택 |

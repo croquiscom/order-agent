@@ -56,6 +56,7 @@ ALLOWED_ACTIONS = {
     "CHECK_PAYMENT_RESULT",
     "EXPECT_FAIL",
     "READ_OTP",
+    "ENSURE_LOGIN_GRAFANA",
 }
 BLOCKED_CLICK_TARGETS = {"confirm_payment"}
 ORDER_SHEET_ID_PATTERN = re.compile(r"/checkout/order-sheets/([a-f0-9-]+)")
@@ -99,6 +100,8 @@ def validate_command(command: ScenarioCommand) -> None:
     line_no = command.line_no
 
     if action in {"NAVIGATE", "CLICK", "WAIT_FOR", "CHECK", "PRESS", "CHECK_URL", "CHECK_NOT_URL", "WAIT_URL", "DUMP_STATE", "EVAL", "ENSURE_LOGIN_ALPHA", "CLICK_SNAPSHOT_TEXT", "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT", "SELECT_CART_ITEM_BY_TEXT", "CLICK_ORDER_DETAIL_BY_STATUS", "CLICK_ORDER_DETAIL_WITH_ACTION", "APPLY_ORDER_STATUS_FILTER", "SUBMIT_CANCEL_REQUEST", "SUBMIT_RETURN_REQUEST", "SUBMIT_EXCHANGE_REQUEST"} and len(args) != 1:
+        raise ValueError(f"line {line_no}: {action} requires exactly 1 argument")
+    if action == "ENSURE_LOGIN_GRAFANA" and len(args) > 1:
         raise ValueError(f"line {line_no}: {action} requires exactly 1 argument")
     if action == "PRINT_ACTIVE_MODAL" and len(args) != 0:
         raise ValueError(f"line {line_no}: PRINT_ACTIVE_MODAL requires no arguments")
@@ -2885,6 +2888,7 @@ def run_scenario(
                 "SAVE_ORDER_NUMBER",
                 "CHECK_ORDER_NUMBER_CHANGED",
                 "ENSURE_LOGIN_ALPHA",
+                "ENSURE_LOGIN_GRAFANA",
                 "CLICK_SNAPSHOT_TEXT",
                 "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT",
                 "SELECT_CART_ITEM_BY_TEXT",
@@ -2916,6 +2920,9 @@ def run_scenario(
                     logger.info("[DRY-RUN] %s", command.action)
                 elif command.action == "ENSURE_LOGIN_ALPHA":
                     logger.info("[DRY-RUN] ENSURE_LOGIN_ALPHA '%s'", command.args[0])
+                elif command.action == "ENSURE_LOGIN_GRAFANA":
+                    target = command.args[0] if command.args else "https://grafana.zigzag.in/"
+                    logger.info("[DRY-RUN] ENSURE_LOGIN_GRAFANA '%s'", target)
                 elif command.action == "CLICK_SNAPSHOT_TEXT":
                     logger.info("[DRY-RUN] CLICK_SNAPSHOT_TEXT '%s'", command.args[0])
                 elif command.action == "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT":
@@ -2951,7 +2958,7 @@ def run_scenario(
                     logger.info("READ_OTP: account='%s' -> {{%s}} = %s", account_name, var_name, otp_code)
                     continue
 
-                if command.action != "ENSURE_LOGIN_ALPHA" and _page_has_upstream_error():
+                if command.action not in {"ENSURE_LOGIN_ALPHA", "ENSURE_LOGIN_GRAFANA"} and _page_has_upstream_error():
                     logger.warning("Detected upstream error before line %s. Trying in-place recovery.", command.line_no)
                     if not _recover_from_upstream_error(max_retries=3):
                         raise RuntimeError(
@@ -3074,6 +3081,111 @@ def run_scenario(
                                 if target_path in current_url:
                                     break
                         logger.info("ENSURE_LOGIN_ALPHA passed (already logged in): %s", current_url)
+                    continue
+
+                if command.action == "ENSURE_LOGIN_GRAFANA":
+                    # Grafana Keycloak-OAuth + OTP 로그인 보장
+                    grafana_target = command.args[0] if command.args else "https://grafana.zigzag.in/"
+                    grafana_user = os.environ.get("GRAFANA_USERNAME")
+                    grafana_pass = os.environ.get("GRAFANA_PASSWORD")
+                    if not grafana_user or not grafana_pass:
+                        raise RuntimeError(
+                            "ENSURE_LOGIN_GRAFANA failed: GRAFANA_USERNAME / GRAFANA_PASSWORD 환경변수가 설정되지 않았습니다. "
+                            ".env 파일에 추가하세요."
+                        )
+
+                    def _grafana_current_url() -> str:
+                        return agent_browser("get", "url", check=True).stdout.strip()
+
+                    def _grafana_is_login_page(url: str) -> bool:
+                        return "/login" in url and "grafana" in url
+
+                    def _grafana_is_keycloak_page(url: str) -> bool:
+                        return "keycloak" in url and ("/auth/" in url or "/login-actions/" in url)
+
+                    # 1) 기존 세션 초기화: Grafana 로그아웃
+                    _safe_open_url("https://grafana.zigzag.in/logout", retries=3)
+                    time.sleep(2.0)
+
+                    # 2) Keycloak SSO 세션 로그아웃
+                    _safe_open_url(
+                        "https://keycloak.kakaostyle.in/auth/realms/master/protocol/openid-connect/logout",
+                        retries=3,
+                    )
+                    time.sleep(2.0)
+                    try:
+                        _click_by_snapshot_text("Logout", retry_on_overlay=False)
+                    except Exception:
+                        logger.info("Keycloak logout button not found (may already be logged out)")
+                    time.sleep(2.0)
+
+                    # 3) Grafana 로그인 페이지 접속
+                    _safe_open_url("https://grafana.zigzag.in/login", retries=5)
+                    time.sleep(2.0)
+
+                    cur = _grafana_current_url()
+                    if not _grafana_is_login_page(cur):
+                        # 이미 로그인 상태
+                        if grafana_target and grafana_target != "https://grafana.zigzag.in/login":
+                            _safe_open_url(grafana_target, retries=3)
+                            time.sleep(1.0)
+                        logger.info("ENSURE_LOGIN_GRAFANA passed (already logged in): %s", _grafana_current_url())
+                        continue
+
+                    # 4) Keycloak-OAuth 버튼 클릭
+                    _click_by_snapshot_text("Sign in with Keycloak-OAuth", retry_on_overlay=retry_on_overlay)
+                    time.sleep(3.0)
+
+                    # 5) Keycloak 로그인 폼 입력
+                    cur = _grafana_current_url()
+                    if _grafana_is_keycloak_page(cur):
+                        # username
+                        agent_browser("click", "input[name=username]", check=True)
+                        time.sleep(0.3)
+                        _cdp_direct_fill("input[name=username]", grafana_user)
+                        # password
+                        agent_browser("click", "input[name=password]", check=True)
+                        time.sleep(0.3)
+                        _cdp_direct_fill("input[name=password]", grafana_pass)
+                        # Sign In
+                        agent_browser("click", "input[type=submit]", check=True)
+                        time.sleep(3.0)
+                    else:
+                        raise RuntimeError(
+                            f"ENSURE_LOGIN_GRAFANA failed: expected Keycloak login page, got {cur}"
+                        )
+
+                    # 6) OTP 입력
+                    cur = _grafana_current_url()
+                    if _grafana_is_keycloak_page(cur) and "otp" in cur.lower() or "totp" in cur.lower():
+                        pass  # OTP 페이지 감지
+                    # Keycloak OTP 페이지는 URL 변경 없이 폼만 교체될 수 있으므로 input[name=otp] 존재로 판단
+                    try:
+                        agent_browser("check", "input[name=otp]", check=True)
+                        from core.otp_reader import read_otp
+                        otp_code = read_otp("deploy")
+                        agent_browser("click", "input[name=otp]", check=True)
+                        time.sleep(0.3)
+                        _cdp_direct_fill("input[name=otp]", otp_code)
+                        agent_browser("click", "input[type=submit]", check=True)
+                        time.sleep(5.0)
+                        logger.info("ENSURE_LOGIN_GRAFANA: OTP submitted")
+                    except (AgentBrowserError, RuntimeError):
+                        logger.info("ENSURE_LOGIN_GRAFANA: no OTP step detected, skipping")
+
+                    # 7) 로그인 성공 확인
+                    cur = _grafana_current_url()
+                    if _grafana_is_login_page(cur) or _grafana_is_keycloak_page(cur):
+                        raise RuntimeError(
+                            f"ENSURE_LOGIN_GRAFANA failed: still on login/keycloak page after login attempt: {cur}"
+                        )
+
+                    # 8) target으로 이동
+                    if grafana_target and grafana_target not in cur:
+                        _safe_open_url(grafana_target, retries=3)
+                        time.sleep(1.0)
+
+                    logger.info("ENSURE_LOGIN_GRAFANA passed: %s", _grafana_current_url())
                     continue
 
                 if command.action == "CLICK_SNAPSHOT_TEXT":
