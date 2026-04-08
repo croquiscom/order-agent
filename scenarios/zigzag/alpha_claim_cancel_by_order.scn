@@ -3,7 +3,7 @@
 # 목적: 특정 주문번호의 주문 상세 진입 후 취소 요청 완료까지 검증
 
 # 1) 주문 상세 직접 진입 (ENSURE_LOGIN이 이미 해당 URL로 이동)
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders/{{order_number}}
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders/{{order_number}}
 WAIT_FOR "text=취소하기"
 
 # 2) 취소하기 클릭 -> 취소 요청 페이지 진입

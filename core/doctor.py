@@ -225,20 +225,20 @@ def collect_doctor_checks(launch_browser: bool = True, use_cache: bool = False) 
         )
 
     def _check_alpha_credentials() -> DoctorCheck:
-        alpha_user = os.getenv("ALPHA_USERNAME", "").strip()
-        alpha_pass = os.getenv("ALPHA_PASSWORD", "").strip()
+        alpha_user = os.getenv("ZIGZAG_ALPHA_USERNAME", "").strip()
+        alpha_pass = os.getenv("ZIGZAG_ALPHA_PASSWORD", "").strip()
         if alpha_user and alpha_pass:
             return DoctorCheck(
                 "alpha_credentials",
                 "PASS",
                 "Alpha test credentials loaded",
-                f"ALPHA_USERNAME={_mask(alpha_user)} / ALPHA_PASSWORD={_mask(alpha_pass)}",
+                f"ZIGZAG_ALPHA_USERNAME={_mask(alpha_user)} / ZIGZAG_ALPHA_PASSWORD={_mask(alpha_pass)}",
             )
         missing = []
         if not alpha_user:
-            missing.append("ALPHA_USERNAME")
+            missing.append("ZIGZAG_ALPHA_USERNAME")
         if not alpha_pass:
-            missing.append("ALPHA_PASSWORD")
+            missing.append("ZIGZAG_ALPHA_PASSWORD")
         return DoctorCheck(
             "alpha_credentials",
             "WARN",

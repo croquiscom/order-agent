@@ -126,7 +126,7 @@ class TestValidateCommand:
             validate_command(cmd)
 
     def test_ensure_login_alpha_requires_one_arg(self):
-        cmd = ScenarioCommand(line_no=1, action="ENSURE_LOGIN_ALPHA", args=[])
+        cmd = ScenarioCommand(line_no=1, action="ENSURE_LOGIN_ZIGZAG_ALPHA", args=[])
         with pytest.raises(ValueError, match="requires exactly 1 argument"):
             validate_command(cmd)
 

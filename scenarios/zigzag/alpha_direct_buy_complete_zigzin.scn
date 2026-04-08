@@ -1,7 +1,7 @@
 # 바로구매 주문 완료 — 직진배송 (주문완료 페이지 도달 검증)
 # 목표: 상품페이지 -> 주문서(from=product) -> 포인트 전액 -> 결제 확인 -> 주문내역 확인
 
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
 WAIT_FOR 500
 
 NAVIGATE https://alpha.zigzag.kr/catalog/products/100100014

@@ -78,7 +78,7 @@ def test_parse_real_scenario_file():
     commands = parse_scenario(scn_path)
 
     assert len(commands) > 10
-    assert commands[0].action == "ENSURE_LOGIN_ALPHA"
+    assert commands[0].action == "ENSURE_LOGIN_ZIGZAG_ALPHA"
     assert any(c.action == "CHECK_NEW_ORDER_SHEET" for c in commands)
     assert any(c.action == "CLICK_SNAPSHOT_TEXT" for c in commands)
 
@@ -101,7 +101,7 @@ def test_parse_press_and_check_url():
         "CHECK_ORDER_DETAIL_ID_CHANGED\n"
         "SAVE_ORDER_NUMBER\n"
         "CHECK_ORDER_NUMBER_CHANGED\n"
-        "ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders\n"
+        "ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders\n"
         "EVAL document.title\n"
         "CLICK_SNAPSHOT_TEXT 포인트 전액사용\n"
         "SELECT_CART_ITEM_BY_TEXT 마이스토어 테스트 상세페이지로 이동\n"
@@ -119,7 +119,7 @@ def test_parse_press_and_check_url():
     assert commands[6].action == "CHECK_ORDER_DETAIL_ID_CHANGED"
     assert commands[7].action == "SAVE_ORDER_NUMBER"
     assert commands[8].action == "CHECK_ORDER_NUMBER_CHANGED"
-    assert commands[9].action == "ENSURE_LOGIN_ALPHA"
+    assert commands[9].action == "ENSURE_LOGIN_ZIGZAG_ALPHA"
     assert commands[10].action == "EVAL"
     assert commands[11].action == "CLICK_SNAPSHOT_TEXT"
     assert commands[12].action == "SELECT_CART_ITEM_BY_TEXT"

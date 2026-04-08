@@ -3,7 +3,7 @@
 # 사용법: python3 services/zigzag/scripts/execute_scenario.py --var ORDER_NO=<주문번호> alpha_claim_exchange.scn
 
 # 1) 로그인 확인 + 지정 주문상세 직접 진입
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
 NAVIGATE https://alpha.zigzag.kr/checkout/orders/{{ORDER_NO}}
 WAIT_FOR 1500
 

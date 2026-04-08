@@ -5,8 +5,8 @@
 - 실테스트 중 자주 발생한 이슈(오버레이 클릭 차단, 주문서 URL 검증 누락)를 표준 절차에 반영한다.
 
 ## 테스트 계정
-- ID: 환경변수 `ALPHA_USERNAME` 또는 `--var username=...`
-- PW: 환경변수 `ALPHA_PASSWORD` 또는 `--var password=...`
+- ID: 환경변수 `ZIGZAG_ALPHA_USERNAME` 또는 `--var username=...`
+- PW: 환경변수 `ZIGZAG_ALPHA_PASSWORD` 또는 `--var password=...`
 
 ## 대상 URL
 - 로그인: `https://alpha.zigzag.kr/auth/email-login?redirect=https%3A%2F%2Falpha.zigzag.kr%2Fmy-page`

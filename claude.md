@@ -86,7 +86,7 @@ URL 검증:
 - `CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT <text>` — 스냅샷 텍스트 앞의 체크박스 클릭
 
 인증/유틸리티:
-- `ENSURE_LOGIN_ALPHA` — alpha 환경 자동 로그인 (`ALPHA_USERNAME`/`ALPHA_PASSWORD` 환경변수 필요)
+- `ENSURE_LOGIN_ZIGZAG_ALPHA` — alpha 환경 자동 로그인 (`ZIGZAG_ALPHA_USERNAME`/`ZIGZAG_ALPHA_PASSWORD` 환경변수 필요)
 - `ENSURE_LOGIN_GRAFANA [url]` — Grafana Keycloak-OAuth + OTP 자동 로그인 (`GRAFANA_USERNAME`/`GRAFANA_PASSWORD` 환경변수 필요). 선택적 target URL 인자
 - `READ_OTP <account_name> [var_name]` — Authenticator 확장프로그램에서 OTP 읽어 `{{var_name}}` 변수에 저장 (기본 var: `otp`)
 - `EVAL <expression>` — JavaScript 표현식 실행
@@ -145,7 +145,7 @@ URL 검증:
 - `pip install -r requirements.txt` — `anthropic>=0.40.0`, `python-dotenv`, `websocket-client`
 - `.env` 파일 지원: `python-dotenv`로 자동 로드 (미설치 시 환경변수 직접 설정). 개인 계정/API 키 등 민감 정보는 `.env`에 저장 (`.gitignore` 포함, 상세: `docs/cli-reference.md`)
 - 시나리오 생성 시 `ANTHROPIC_API_KEY` 필요.
-- `ENSURE_LOGIN_ALPHA` 액션 사용 시 `ALPHA_USERNAME`/`ALPHA_PASSWORD` 환경변수 필요.
+- `ENSURE_LOGIN_ZIGZAG_ALPHA` 액션 사용 시 `ZIGZAG_ALPHA_USERNAME`/`ZIGZAG_ALPHA_PASSWORD` 환경변수 필요.
 - `ENSURE_LOGIN_GRAFANA` 액션 사용 시 `GRAFANA_USERNAME`/`GRAFANA_PASSWORD` 환경변수 필요.
 - 테스트 실행: `python3 -m pytest -q`
 
@@ -236,7 +236,7 @@ URL 검증:
     - `ORDER_AGENT_DISABLE_CDP_TAB_SANITIZE` — 시작 시 CDP 탭 정리 비활성화
     - `ORDER_AGENT_AGENT_BROWSER_TIMEOUT_SEC` — agent-browser subprocess 타임아웃 (기본: 20초)
   - 시나리오 실행:
-    - `ALPHA_USERNAME` / `ALPHA_PASSWORD` — `ENSURE_LOGIN_ALPHA` 액션에 필요
+    - `ZIGZAG_ALPHA_USERNAME` / `ZIGZAG_ALPHA_PASSWORD` — `ENSURE_LOGIN_ZIGZAG_ALPHA` 액션에 필요
     - `GRAFANA_USERNAME` / `GRAFANA_PASSWORD` — `ENSURE_LOGIN_GRAFANA` 액션에 필요
     - `ORDER_AGENT_REASON_TEXT` — 클레임 사유 텍스트 사전 지정
     - `ORDER_AGENT_REASON_INDEX` — 클레임 사유 선택지 인덱스 사전 지정

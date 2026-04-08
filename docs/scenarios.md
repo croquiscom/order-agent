@@ -41,7 +41,7 @@
 - 목적: alpha 회귀 및 증적 수집(상태 덤프 중심)
 
 10. `scenarios/zigzag/alpha_relogin_recovery.scn`
-- 목적: 로그인 세션 만료 시 `ENSURE_LOGIN_ALPHA` 복구 동작 검증
+- 목적: 로그인 세션 만료 시 `ENSURE_LOGIN_ZIGZAG_ALPHA` 복구 동작 검증
 
 11. `scenarios/zigzag/alpha_payment_blocked_modal.scn`
 - 목적: 결제 클릭 이후 차단 모달/알림 메시지 증적 수집

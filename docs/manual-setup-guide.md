@@ -46,8 +46,8 @@ cp .env.example .env
 
 | 항목 | 설명 |
 |---|---|
-| `ALPHA_USERNAME` | alpha.zigzag.kr 테스트 계정 이메일 |
-| `ALPHA_PASSWORD` | alpha.zigzag.kr 테스트 계정 비밀번호 |
+| `ZIGZAG_ALPHA_USERNAME` | alpha.zigzag.kr 테스트 계정 이메일 |
+| `ZIGZAG_ALPHA_PASSWORD` | alpha.zigzag.kr 테스트 계정 비밀번호 |
 
 **선택**
 
@@ -58,8 +58,8 @@ cp .env.example .env
 `.env` 파일 예시:
 
 ```
-ALPHA_USERNAME=test@example.com
-ALPHA_PASSWORD=your_password_here
+ZIGZAG_ALPHA_USERNAME=test@example.com
+ZIGZAG_ALPHA_PASSWORD=your_password_here
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
@@ -136,7 +136,7 @@ python3 executor/doctor.py --json --output logs/doctor.json
 - 브라우저 기동 정책(attach-only 여부, auto-launch 여부)
 - CDP 포트 연결 가능 여부
 - 기본 페이지 확보 여부
-- `ALPHA_USERNAME`, `ALPHA_PASSWORD` 존재 여부
+- `ZIGZAG_ALPHA_USERNAME`, `ZIGZAG_ALPHA_PASSWORD` 존재 여부
 
 기본 프로필 경로는 `~/.order-agent/browser/agent-browser-profile`이다. 별도 사용자 데이터 디렉터리를 사용하므로 개인 브라우저 세션과 테스트 세션이 섞이지 않는다.
 
@@ -266,6 +266,6 @@ pip install websocket-client
 `.env` 파일이 프로젝트 루트에 있는지 확인한다. 실행기는 자동으로 `.env`를 로드한다. 또는 셸 세션에 직접 export 한다.
 
 ```bash
-export ALPHA_USERNAME=test@example.com
-export ALPHA_PASSWORD=your_password_here
+export ZIGZAG_ALPHA_USERNAME=test@example.com
+export ZIGZAG_ALPHA_PASSWORD=your_password_here
 ```

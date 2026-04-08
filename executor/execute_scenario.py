@@ -41,7 +41,7 @@ ALLOWED_ACTIONS = {
     "CHECK_ORDER_DETAIL_ID_CHANGED",
     "SAVE_ORDER_NUMBER",
     "CHECK_ORDER_NUMBER_CHANGED",
-    "ENSURE_LOGIN_ALPHA",
+    "ENSURE_LOGIN_ZIGZAG_ALPHA",
     "EVAL",
     "CLICK_SNAPSHOT_TEXT",
     "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT",
@@ -99,7 +99,7 @@ def validate_command(command: ScenarioCommand) -> None:
     args = command.args
     line_no = command.line_no
 
-    if action in {"NAVIGATE", "CLICK", "WAIT_FOR", "CHECK", "PRESS", "CHECK_URL", "CHECK_NOT_URL", "WAIT_URL", "DUMP_STATE", "EVAL", "ENSURE_LOGIN_ALPHA", "CLICK_SNAPSHOT_TEXT", "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT", "SELECT_CART_ITEM_BY_TEXT", "CLICK_ORDER_DETAIL_BY_STATUS", "CLICK_ORDER_DETAIL_WITH_ACTION", "APPLY_ORDER_STATUS_FILTER", "SUBMIT_CANCEL_REQUEST", "SUBMIT_RETURN_REQUEST", "SUBMIT_EXCHANGE_REQUEST"} and len(args) != 1:
+    if action in {"NAVIGATE", "CLICK", "WAIT_FOR", "CHECK", "PRESS", "CHECK_URL", "CHECK_NOT_URL", "WAIT_URL", "DUMP_STATE", "EVAL", "ENSURE_LOGIN_ZIGZAG_ALPHA", "CLICK_SNAPSHOT_TEXT", "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT", "SELECT_CART_ITEM_BY_TEXT", "CLICK_ORDER_DETAIL_BY_STATUS", "CLICK_ORDER_DETAIL_WITH_ACTION", "APPLY_ORDER_STATUS_FILTER", "SUBMIT_CANCEL_REQUEST", "SUBMIT_RETURN_REQUEST", "SUBMIT_EXCHANGE_REQUEST"} and len(args) != 1:
         raise ValueError(f"line {line_no}: {action} requires exactly 1 argument")
     if action == "ENSURE_LOGIN_GRAFANA" and len(args) > 1:
         raise ValueError(f"line {line_no}: {action} requires exactly 1 argument")
@@ -2887,7 +2887,7 @@ def run_scenario(
                 "CHECK_ORDER_DETAIL_ID_CHANGED",
                 "SAVE_ORDER_NUMBER",
                 "CHECK_ORDER_NUMBER_CHANGED",
-                "ENSURE_LOGIN_ALPHA",
+                "ENSURE_LOGIN_ZIGZAG_ALPHA",
                 "ENSURE_LOGIN_GRAFANA",
                 "CLICK_SNAPSHOT_TEXT",
                 "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT",
@@ -2918,8 +2918,8 @@ def run_scenario(
                     "CHECK_PAYMENT_RESULT",
                 }:
                     logger.info("[DRY-RUN] %s", command.action)
-                elif command.action == "ENSURE_LOGIN_ALPHA":
-                    logger.info("[DRY-RUN] ENSURE_LOGIN_ALPHA '%s'", command.args[0])
+                elif command.action == "ENSURE_LOGIN_ZIGZAG_ALPHA":
+                    logger.info("[DRY-RUN] ENSURE_LOGIN_ZIGZAG_ALPHA '%s'", command.args[0])
                 elif command.action == "ENSURE_LOGIN_GRAFANA":
                     target = command.args[0] if command.args else "https://grafana.zigzag.in/"
                     logger.info("[DRY-RUN] ENSURE_LOGIN_GRAFANA '%s'", target)
@@ -2958,14 +2958,14 @@ def run_scenario(
                     logger.info("READ_OTP: account='%s' -> {{%s}} = %s", account_name, var_name, otp_code)
                     continue
 
-                if command.action not in {"ENSURE_LOGIN_ALPHA", "ENSURE_LOGIN_GRAFANA"} and _page_has_upstream_error():
+                if command.action not in {"ENSURE_LOGIN_ZIGZAG_ALPHA", "ENSURE_LOGIN_GRAFANA"} and _page_has_upstream_error():
                     logger.warning("Detected upstream error before line %s. Trying in-place recovery.", command.line_no)
                     if not _recover_from_upstream_error(max_retries=3):
                         raise RuntimeError(
                             "ENV_UPSTREAM_UNHEALTHY: upstream error page persists after recovery retries"
                         )
 
-                if command.action == "ENSURE_LOGIN_ALPHA":
+                if command.action == "ENSURE_LOGIN_ZIGZAG_ALPHA":
                     target_url = command.args[0]
                     target_path = urllib.parse.urlparse(target_url).path or target_url
                     def _current_url() -> str:
@@ -3013,7 +3013,7 @@ def run_scenario(
                                 current_url = _current_url()
                                 logger.info("Already-logged-in notice handled. Redirected to: %s", current_url)
                             if not _is_login_url(current_url):
-                                logger.info("ENSURE_LOGIN_ALPHA passed via already-logged-in notice: %s", current_url)
+                                logger.info("ENSURE_LOGIN_ZIGZAG_ALPHA passed via already-logged-in notice: %s", current_url)
                                 continue
 
                         logger.warning("Login required. Running alpha re-login flow.")
@@ -3022,11 +3022,11 @@ def run_scenario(
                         time.sleep(0.8)
 
                         # 로그인 페이지를 벗어나지 않고 동일 화면에서 1~2회만 시도
-                        alpha_user = os.environ.get("ALPHA_USERNAME")
-                        alpha_pass = os.environ.get("ALPHA_PASSWORD")
+                        alpha_user = os.environ.get("ZIGZAG_ALPHA_USERNAME")
+                        alpha_pass = os.environ.get("ZIGZAG_ALPHA_PASSWORD")
                         if not alpha_user or not alpha_pass:
                             raise RuntimeError(
-                                "ENSURE_LOGIN_ALPHA failed: ALPHA_USERNAME / ALPHA_PASSWORD 환경변수가 설정되지 않았습니다. "
+                                "ENSURE_LOGIN_ZIGZAG_ALPHA failed: ZIGZAG_ALPHA_USERNAME / ZIGZAG_ALPHA_PASSWORD 환경변수가 설정되지 않았습니다. "
                                 ".env.example을 참고하여 .env 파일을 생성하세요."
                             )
 
@@ -3042,13 +3042,13 @@ def run_scenario(
                                 login_fallback = agent_browser("click", "text=로그인", check=False)
                                 login_clicked = login_fallback.returncode == 0
                             if not login_clicked:
-                                raise RuntimeError("ENSURE_LOGIN_ALPHA failed: unable to click login button")
+                                raise RuntimeError("ENSURE_LOGIN_ZIGZAG_ALPHA failed: unable to click login button")
 
                             time.sleep(2.2)
                             current_url = _current_url()
                             if "/auth/error" in current_url and "type=login" in current_url:
                                 raise RuntimeError(
-                                    "ENSURE_LOGIN_ALPHA failed: login blocked by auth/error. "
+                                    "ENSURE_LOGIN_ZIGZAG_ALPHA failed: login blocked by auth/error. "
                                     "Manual login is required in this environment."
                                 )
                             if not _is_login_url(current_url):
@@ -3057,7 +3057,7 @@ def run_scenario(
                             logger.warning("Login attempt %s did not finish. Retrying once.", attempt)
 
                         if not login_ok:
-                            raise RuntimeError("ENSURE_LOGIN_ALPHA failed: still on login page after retry")
+                            raise RuntimeError("ENSURE_LOGIN_ZIGZAG_ALPHA failed: still on login page after retry")
 
                         # 로그인 성공 후 target으로 1회 이동
                         if target_url not in current_url:
@@ -3071,7 +3071,7 @@ def run_scenario(
                                 current_url = _current_url()
                                 if target_path in current_url:
                                     break
-                        logger.info("ENSURE_LOGIN_ALPHA passed after re-login: %s", current_url)
+                        logger.info("ENSURE_LOGIN_ZIGZAG_ALPHA passed after re-login: %s", current_url)
                     else:
                         if target_path not in current_url:
                             for _ in range(3):
@@ -3080,7 +3080,7 @@ def run_scenario(
                                 current_url = _current_url()
                                 if target_path in current_url:
                                     break
-                        logger.info("ENSURE_LOGIN_ALPHA passed (already logged in): %s", current_url)
+                        logger.info("ENSURE_LOGIN_ZIGZAG_ALPHA passed (already logged in): %s", current_url)
                     continue
 
                 if command.action == "ENSURE_LOGIN_GRAFANA":

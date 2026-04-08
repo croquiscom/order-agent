@@ -1,7 +1,7 @@
 # 클레임 3종(취소/반품/교환) 진입 가능 여부 확인
 # 목적: 주문내역에서 주문상세 진입 후 클레임 3종(취소/반품/교환) 진입 가능 여부 및 증적 수집
 
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
 WAIT_FOR 2500
 CHECK_URL /checkout/orders
 

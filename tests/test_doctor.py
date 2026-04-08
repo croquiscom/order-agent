@@ -32,8 +32,8 @@ def test_collect_doctor_checks_pass_path(mock_agent_browser, mock_cdp_ready, moc
     with patch.dict(
         os.environ,
         {
-            "ALPHA_USERNAME": "tester@example.com",
-            "ALPHA_PASSWORD": "secret-pass",
+            "ZIGZAG_ALPHA_USERNAME": "tester@example.com",
+            "ZIGZAG_ALPHA_PASSWORD": "secret-pass",
         },
         clear=False,
     ):
@@ -87,7 +87,7 @@ def test_doctor_report_json_contains_summary():
     payload = doctor_report_json(
         [
             DoctorCheck("env_file", "PASS", ".env file detected", "/tmp/.env"),
-            DoctorCheck("alpha_credentials", "WARN", "Alpha test credentials incomplete", "Missing: ALPHA_PASSWORD"),
+            DoctorCheck("alpha_credentials", "WARN", "Alpha test credentials incomplete", "Missing: ZIGZAG_ALPHA_PASSWORD"),
         ]
     )
 
@@ -101,14 +101,14 @@ def test_doctor_report_text_quiet_mode_filters_passes():
     rendered = doctor_report_text(
         [
             DoctorCheck("env_file", "PASS", ".env file detected", "/tmp/.env"),
-            DoctorCheck("alpha_credentials", "WARN", "Alpha test credentials incomplete", "Missing: ALPHA_PASSWORD"),
+            DoctorCheck("alpha_credentials", "WARN", "Alpha test credentials incomplete", "Missing: ZIGZAG_ALPHA_PASSWORD"),
         ],
         quiet=True,
     )
 
     assert "PASS  .env file detected" not in rendered
     assert "WARN" in rendered
-    assert "Missing: ALPHA_PASSWORD" in rendered
+    assert "Missing: ZIGZAG_ALPHA_PASSWORD" in rendered
 
 
 def test_doctor_report_text_quiet_mode_all_pass():

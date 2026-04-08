@@ -44,7 +44,7 @@ description: "주문 e2e 시나리오 작성 가이드 및 체크리스트. Use 
 
 ```
 # 0) 사전 상태 저장 (baseline) — 결과 검증을 위한 기준점
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
 SAVE_ORDER_NUMBER
 
 # 1) 대상 페이지 진입
@@ -62,7 +62,7 @@ DUMP_STATE <tag>
 작성 규칙:
 - `#` 주석으로 **단계별 목적을 명시** — 실패 시 로그에서 위치 파악 용이
 - 페이지 전환 후 반드시 `WAIT_FOR`을 넣을 것 — 렌더링 대기 없이 다음 액션 실행하면 요소 탐색 실패
-- `ENSURE_LOGIN_ALPHA` target은 반드시 **인증 필수 페이지** 사용 (예: `/checkout/orders`). 공개 페이지 사용 금지
+- `ENSURE_LOGIN_ZIGZAG_ALPHA` target은 반드시 **인증 필수 페이지** 사용 (예: `/checkout/orders`). 공개 페이지 사용 금지
 
 ---
 
@@ -78,7 +78,7 @@ DUMP_STATE <tag>
 | 주문/장바구니 | `CLICK_ORDER_DETAIL_BY_STATUS`, `CLICK_ORDER_DETAIL_WITH_ACTION`, `APPLY_ORDER_STATUS_FILTER`, `SELECT_CART_ITEM_BY_TEXT` |
 | 클레임 제출 | `SUBMIT_CANCEL_REQUEST`, `SUBMIT_RETURN_REQUEST`, `SUBMIT_EXCHANGE_REQUEST` |
 | 스냅샷 | `CLICK_SNAPSHOT_TEXT`, `CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT` |
-| 인증/유틸 | `ENSURE_LOGIN_ALPHA`, `ENSURE_LOGIN_GRAFANA`, `READ_OTP`, `EVAL`, `DUMP_STATE` |
+| 인증/유틸 | `ENSURE_LOGIN_ZIGZAG_ALPHA`, `ENSURE_LOGIN_GRAFANA`, `READ_OTP`, `EVAL`, `DUMP_STATE` |
 | 디버깅 | `PRINT_ACTIVE_MODAL`, `EXPECT_FAIL` |
 
 ---

@@ -2,7 +2,7 @@
 # 목적: 주문배송 목록에서 결제완료/주문확인중 상태 주문을 탐색해 취소 요청 완료까지 검증
 
 # 1) 주문 목록 진입 (필터 초기화를 위해 NAVIGATE로 새로고침)
-ENSURE_LOGIN_ALPHA https://alpha.zigzag.kr/checkout/orders
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
 NAVIGATE https://alpha.zigzag.kr/checkout/orders
 WAIT_FOR 1500
 

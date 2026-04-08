@@ -43,7 +43,7 @@ argument-hint: "<자연어 시나리오 설명>"
    | SAVE_ORDER_NUMBER | 없음 | 현재 주문번호 저장 |
    | CHECK_ORDER_NUMBER_CHANGED | 없음 | 주문번호 변경 확인 |
    | EVAL | js_expression | JavaScript 실행 |
-   | ENSURE_LOGIN_ALPHA | url | 알파 로그인 보장 (인증 필수 URL 사용) |
+   | ENSURE_LOGIN_ZIGZAG_ALPHA | url | 알파 로그인 보장 (인증 필수 URL 사용) |
    | ENSURE_LOGIN_GRAFANA | [url] | Grafana Keycloak-OAuth+OTP 로그인 보장 (GRAFANA_USERNAME/GRAFANA_PASSWORD 환경변수) |
    | CLICK_SNAPSHOT_TEXT | text | 스냅샷 텍스트 클릭 |
    | CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT | text | 스냅샷 텍스트 앞 체크박스 클릭 |
@@ -69,7 +69,7 @@ argument-hint: "<자연어 시나리오 설명>"
    - 기본은 0원 결제 플로우만 허용
    - 실제 결제 허용은 명시적 승인과 `ALLOW_REAL_PAYMENT=1`이 있는 경우만 예외
 
-7. ENSURE_LOGIN_ALPHA target은 반드시 **인증 필수 페이지** 사용 (예: `/checkout/orders`)
+7. ENSURE_LOGIN_ZIGZAG_ALPHA target은 반드시 **인증 필수 페이지** 사용 (예: `/checkout/orders`)
    - 공개 페이지(`/catalog/products/...`)를 target으로 사용하면 세션 만료를 감지 못함
 
 8. 기존 시나리오를 참고하여 패턴을 맞춘다.
