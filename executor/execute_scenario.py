@@ -3110,11 +3110,18 @@ def run_scenario(
                     def _grafana_is_keycloak_page(url: str) -> bool:
                         return "keycloak" in url and ("/auth/" in url or "/login-actions/" in url)
 
-                    # 1) 기존 세션 초기화: Grafana 로그아웃
+                    # 1) 먼저 로그인 상태 확인
+                    _safe_open_url(grafana_target, retries=5)
+                    time.sleep(2.0)
+                    cur = _grafana_current_url()
+                    if not _grafana_is_login_page(cur) and not _grafana_is_keycloak_page(cur):
+                        # 이미 로그인 상태 — 로그아웃하지 않고 바로 pass
+                        logger.info("ENSURE_LOGIN_GRAFANA passed (already logged in): %s", cur)
+                        continue
+
+                    # 2) 로그인 필요 — Keycloak SSO 세션 초기화 후 로그인
                     _safe_open_url("https://grafana.zigzag.in/logout", retries=3)
                     time.sleep(2.0)
-
-                    # 2) Keycloak SSO 세션 로그아웃
                     _safe_open_url(
                         "https://keycloak.kakaostyle.in/auth/realms/master/protocol/openid-connect/logout",
                         retries=3,
@@ -3129,15 +3136,6 @@ def run_scenario(
                     # 3) Grafana 로그인 페이지 접속
                     _safe_open_url("https://grafana.zigzag.in/login", retries=5)
                     time.sleep(2.0)
-
-                    cur = _grafana_current_url()
-                    if not _grafana_is_login_page(cur):
-                        # 이미 로그인 상태
-                        if grafana_target and grafana_target != "https://grafana.zigzag.in/login":
-                            _safe_open_url(grafana_target, retries=3)
-                            time.sleep(1.0)
-                        logger.info("ENSURE_LOGIN_GRAFANA passed (already logged in): %s", _grafana_current_url())
-                        continue
 
                     # 4) Keycloak-OAuth 버튼 클릭
                     _click_by_snapshot_text("Sign in with Keycloak-OAuth", retry_on_overlay=retry_on_overlay)
