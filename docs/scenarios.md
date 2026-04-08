@@ -99,7 +99,7 @@
 
 26. `scenarios/aws/sso_login.scn`
 - 목적: AWS SSO 포털 로그인
-- 핵심: Authenticator 확장프로그램에서 OTP 자동 읽기 (`READ_OTP "AWS SSO"`)
+- 핵심: `ENSURE_LOGIN_AWS_SSO` 전용 액션으로 username → password → OTP 자동 처리. `AWS_SSO_USERNAME`/`AWS_SSO_PASSWORD` 환경변수 사용
 
 27. `scenarios/grafana/login.scn`
 - 목적: Grafana 로그인 (Keycloak-OAuth + OTP)

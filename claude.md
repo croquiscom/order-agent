@@ -88,6 +88,7 @@ URL 검증:
 인증/유틸리티:
 - `ENSURE_LOGIN_ZIGZAG_ALPHA` — alpha 환경 자동 로그인 (`ZIGZAG_ALPHA_USERNAME`/`ZIGZAG_ALPHA_PASSWORD` 환경변수 필요)
 - `ENSURE_LOGIN_GRAFANA [url]` — Grafana Keycloak-OAuth + OTP 자동 로그인 (`GRAFANA_USERNAME`/`GRAFANA_PASSWORD` 환경변수 필요). 선택적 target URL 인자
+- `ENSURE_LOGIN_AWS_SSO [url]` — AWS SSO 포털 자동 로그인 + OTP (`AWS_SSO_USERNAME`/`AWS_SSO_PASSWORD` 환경변수 필요). 선택적 target URL 인자
 - `READ_OTP <account_name> [var_name]` — Authenticator 확장프로그램에서 OTP 읽어 `{{var_name}}` 변수에 저장 (기본 var: `otp`)
 - `EVAL <expression>` — JavaScript 표현식 실행
 - `DUMP_STATE <tag>` — 현재 페이지 상태 덤프
@@ -147,6 +148,7 @@ URL 검증:
 - 시나리오 생성 시 `ANTHROPIC_API_KEY` 필요.
 - `ENSURE_LOGIN_ZIGZAG_ALPHA` 액션 사용 시 `ZIGZAG_ALPHA_USERNAME`/`ZIGZAG_ALPHA_PASSWORD` 환경변수 필요.
 - `ENSURE_LOGIN_GRAFANA` 액션 사용 시 `GRAFANA_USERNAME`/`GRAFANA_PASSWORD` 환경변수 필요.
+- `ENSURE_LOGIN_AWS_SSO` 액션 사용 시 `AWS_SSO_USERNAME`/`AWS_SSO_PASSWORD` 환경변수 필요.
 - 테스트 실행: `python3 -m pytest -q`
 
 ## 8) CDP 직접 입력 패턴 (agent-browser 우회)
@@ -238,6 +240,7 @@ URL 검증:
   - 시나리오 실행:
     - `ZIGZAG_ALPHA_USERNAME` / `ZIGZAG_ALPHA_PASSWORD` — `ENSURE_LOGIN_ZIGZAG_ALPHA` 액션에 필요
     - `GRAFANA_USERNAME` / `GRAFANA_PASSWORD` — `ENSURE_LOGIN_GRAFANA` 액션에 필요
+    - `AWS_SSO_USERNAME` / `AWS_SSO_PASSWORD` — `ENSURE_LOGIN_AWS_SSO` 액션에 필요
     - `ORDER_AGENT_REASON_TEXT` — 클레임 사유 텍스트 사전 지정
     - `ORDER_AGENT_REASON_INDEX` — 클레임 사유 선택지 인덱스 사전 지정
     - `ALLOW_REAL_PAYMENT` (`1`이면 결제 버튼 안전 차단 해제)

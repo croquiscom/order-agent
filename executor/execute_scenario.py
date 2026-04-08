@@ -57,6 +57,7 @@ ALLOWED_ACTIONS = {
     "EXPECT_FAIL",
     "READ_OTP",
     "ENSURE_LOGIN_GRAFANA",
+    "ENSURE_LOGIN_AWS_SSO",
 }
 BLOCKED_CLICK_TARGETS = {"confirm_payment"}
 ORDER_SHEET_ID_PATTERN = re.compile(r"/checkout/order-sheets/([a-f0-9-]+)")
@@ -102,6 +103,8 @@ def validate_command(command: ScenarioCommand) -> None:
     if action in {"NAVIGATE", "CLICK", "WAIT_FOR", "CHECK", "PRESS", "CHECK_URL", "CHECK_NOT_URL", "WAIT_URL", "DUMP_STATE", "EVAL", "ENSURE_LOGIN_ZIGZAG_ALPHA", "CLICK_SNAPSHOT_TEXT", "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT", "SELECT_CART_ITEM_BY_TEXT", "CLICK_ORDER_DETAIL_BY_STATUS", "CLICK_ORDER_DETAIL_WITH_ACTION", "APPLY_ORDER_STATUS_FILTER", "SUBMIT_CANCEL_REQUEST", "SUBMIT_RETURN_REQUEST", "SUBMIT_EXCHANGE_REQUEST"} and len(args) != 1:
         raise ValueError(f"line {line_no}: {action} requires exactly 1 argument")
     if action == "ENSURE_LOGIN_GRAFANA" and len(args) > 1:
+        raise ValueError(f"line {line_no}: ENSURE_LOGIN_GRAFANA takes 0 or 1 argument (optional target URL)")
+    if action == "ENSURE_LOGIN_AWS_SSO" and len(args) > 1:
         raise ValueError(f"line {line_no}: {action} requires exactly 1 argument")
     if action == "PRINT_ACTIVE_MODAL" and len(args) != 0:
         raise ValueError(f"line {line_no}: PRINT_ACTIVE_MODAL requires no arguments")
@@ -2889,6 +2892,7 @@ def run_scenario(
                 "CHECK_ORDER_NUMBER_CHANGED",
                 "ENSURE_LOGIN_ZIGZAG_ALPHA",
                 "ENSURE_LOGIN_GRAFANA",
+                "ENSURE_LOGIN_AWS_SSO",
                 "CLICK_SNAPSHOT_TEXT",
                 "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT",
                 "SELECT_CART_ITEM_BY_TEXT",
@@ -2923,6 +2927,9 @@ def run_scenario(
                 elif command.action == "ENSURE_LOGIN_GRAFANA":
                     target = command.args[0] if command.args else "https://grafana.zigzag.in/"
                     logger.info("[DRY-RUN] ENSURE_LOGIN_GRAFANA '%s'", target)
+                elif command.action == "ENSURE_LOGIN_AWS_SSO":
+                    target = command.args[0] if command.args else "https://kakaostyle.awsapps.com/start"
+                    logger.info("[DRY-RUN] ENSURE_LOGIN_AWS_SSO '%s'", target)
                 elif command.action == "CLICK_SNAPSHOT_TEXT":
                     logger.info("[DRY-RUN] CLICK_SNAPSHOT_TEXT '%s'", command.args[0])
                 elif command.action == "CLICK_PREV_CHECKBOX_FOR_SNAPSHOT_TEXT":
@@ -2958,7 +2965,7 @@ def run_scenario(
                     logger.info("READ_OTP: account='%s' -> {{%s}} = %s", account_name, var_name, otp_code)
                     continue
 
-                if command.action not in {"ENSURE_LOGIN_ZIGZAG_ALPHA", "ENSURE_LOGIN_GRAFANA"} and _page_has_upstream_error():
+                if command.action not in {"ENSURE_LOGIN_ZIGZAG_ALPHA", "ENSURE_LOGIN_GRAFANA", "ENSURE_LOGIN_AWS_SSO"} and _page_has_upstream_error():
                     logger.warning("Detected upstream error before line %s. Trying in-place recovery.", command.line_no)
                     if not _recover_from_upstream_error(max_retries=3):
                         raise RuntimeError(
@@ -3186,6 +3193,73 @@ def run_scenario(
                         time.sleep(1.0)
 
                     logger.info("ENSURE_LOGIN_GRAFANA passed: %s", _grafana_current_url())
+                    continue
+
+                if command.action == "ENSURE_LOGIN_AWS_SSO":
+                    # AWS SSO 포털 로그인 보장 (username → password → OTP)
+                    aws_target = command.args[0] if command.args else "https://kakaostyle.awsapps.com/start"
+                    aws_user = os.environ.get("AWS_SSO_USERNAME")
+                    aws_pass = os.environ.get("AWS_SSO_PASSWORD")
+                    if not aws_user or not aws_pass:
+                        raise RuntimeError(
+                            "ENSURE_LOGIN_AWS_SSO failed: AWS_SSO_USERNAME / AWS_SSO_PASSWORD 환경변수가 설정되지 않았습니다. "
+                            ".env 파일에 추가하세요."
+                        )
+
+                    def _aws_current_url() -> str:
+                        return agent_browser("get", "url", check=True).stdout.strip()
+
+                    # 1) AWS SSO 포털 접속
+                    _safe_open_url(aws_target, retries=5)
+                    time.sleep(2.0)
+
+                    cur = _aws_current_url()
+                    if "awsapps.com/start" in cur and "/start#/" in cur:
+                        # 이미 로그인 상태
+                        logger.info("ENSURE_LOGIN_AWS_SSO passed (already logged in): %s", cur)
+                        continue
+
+                    # 2) 계정(이메일) 입력
+                    agent_browser("wait", "role=textbox", check=True)
+                    time.sleep(0.5)
+                    agent_browser("click", "role=textbox", check=True)
+                    time.sleep(0.3)
+                    _cdp_direct_fill("role=textbox", aws_user)
+                    agent_browser("click", "button[type=submit]", check=True)
+                    time.sleep(3.0)
+
+                    # 3) 비밀번호 입력
+                    agent_browser("wait", "role=textbox", check=True)
+                    time.sleep(0.5)
+                    agent_browser("click", "role=textbox", check=True)
+                    time.sleep(0.3)
+                    _cdp_direct_fill("role=textbox", aws_pass)
+                    agent_browser("click", "button[type=submit]", check=True)
+                    time.sleep(3.0)
+
+                    # 4) OTP 입력
+                    try:
+                        agent_browser("wait", "role=textbox", check=True)
+                        from core.otp_reader import read_otp
+                        otp_code = read_otp("AWS SSO")
+                        time.sleep(0.5)
+                        agent_browser("click", "role=textbox", check=True)
+                        time.sleep(0.3)
+                        _cdp_direct_fill("role=textbox", otp_code)
+                        agent_browser("click", "button[type=submit]", check=True)
+                        time.sleep(5.0)
+                        logger.info("ENSURE_LOGIN_AWS_SSO: OTP submitted")
+                    except (AgentBrowserError, RuntimeError):
+                        logger.info("ENSURE_LOGIN_AWS_SSO: no OTP step detected, skipping")
+
+                    # 5) 로그인 완료 확인
+                    cur = _aws_current_url()
+                    if "awsapps.com/start" not in cur:
+                        raise RuntimeError(
+                            f"ENSURE_LOGIN_AWS_SSO failed: expected AWS SSO portal, got {cur}"
+                        )
+
+                    logger.info("ENSURE_LOGIN_AWS_SSO passed: %s", cur)
                     continue
 
                 if command.action == "CLICK_SNAPSHOT_TEXT":
