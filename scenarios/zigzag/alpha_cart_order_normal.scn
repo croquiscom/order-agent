@@ -1,6 +1,7 @@
-# 장바구니 경유 주문 생성 — 스토어배송
-# 기본 플로우: 사이트 접속 -> 상품페이지 -> 옵션선택 -> 장바구니 -> 포인트 전액 -> 결제완료
-# 성공 기준: 결제 전/후 최신 orderNumber(주문번호) 변경
+# @title: 장바구니 경유 주문 생성 — 스토어배송
+# @tier: smoke
+# @area: cart, order, payment
+# @pages: /catalog/products, /checkout/cart, /checkout/order-sheets
 
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
 WAIT_FOR 3500

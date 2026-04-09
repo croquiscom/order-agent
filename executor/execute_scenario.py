@@ -69,6 +69,49 @@ SNAPSHOT_CART_COUNT_PATTERN = re.compile(r"전체선택\s*\((\d+)\s*/\s*(\d+)\)"
 
 
 @dataclass
+class ScenarioMetadata:
+    title: str = ""
+    tier: str = ""
+    area: list[str] = None
+    pages: list[str] = None
+    usage: str = ""
+
+    def __post_init__(self):
+        if self.area is None:
+            self.area = []
+        if self.pages is None:
+            self.pages = []
+
+
+_META_TAG_RE = re.compile(r"^#\s*@(\w+):\s*(.+)$")
+
+
+def parse_metadata(path: Path) -> ScenarioMetadata:
+    """Parse ``# @key: value`` tags from the header of a ``.scn`` file."""
+    meta = ScenarioMetadata()
+    with open(path, "r", encoding="utf-8") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or not line.startswith("#"):
+                break
+            m = _META_TAG_RE.match(line)
+            if not m:
+                continue
+            key, value = m.group(1), m.group(2).strip()
+            if key == "title":
+                meta.title = value
+            elif key == "tier":
+                meta.tier = value
+            elif key == "area":
+                meta.area = [v.strip() for v in value.split(",")]
+            elif key == "pages":
+                meta.pages = [v.strip() for v in value.split(",")]
+            elif key == "usage":
+                meta.usage = value
+    return meta
+
+
+@dataclass
 class ScenarioCommand:
     line_no: int
     action: str
@@ -3558,6 +3601,18 @@ def run_scenario(
                     print(f"\n[CLAIM_NOT_AVAILABLE] 해당 주문은 클레임 처리가 불가합니다.")
                     print(f"  사유: {reason}")
                     print(f"  URL: {agent_browser('get', 'url', check=False).stdout.strip()}")
+                    return 0
+
+                # EVAL 결과가 REPORT: 이면 사전조건 미충족 — 사유 리포트 후 시나리오 정상 종결
+                if command.action == "EVAL" and "REPORT:" in eval_output:
+                    report_msg = eval_output.split("REPORT:", 1)[1].strip().strip('"')
+                    logger.warning("사전조건 미충족 — %s", report_msg)
+                    print(f"\n[REPORT] 시나리오 사전조건 미충족으로 정상 종결합니다.")
+                    print(f"  사유: {report_msg}")
+                    try:
+                        print(f"  URL: {agent_browser('get', 'url', check=False).stdout.strip()}")
+                    except Exception:
+                        pass
                     return 0
 
             except AgentBrowserError as exc:

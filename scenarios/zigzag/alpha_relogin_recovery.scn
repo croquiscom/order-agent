@@ -1,5 +1,7 @@
-# alpha 재로그인 복구 시나리오
-# 목적: 로그인 세션이 풀린 상태에서도 ENSURE_LOGIN_ZIGZAG_ALPHA로 복구 후 플로우 재개 검증
+# @title: 재로그인 복구 검증
+# @tier: regression
+# @area: login
+# @pages: /auth, /checkout/cart
 
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
 WAIT_FOR 1200

@@ -1,5 +1,7 @@
-# 결제 요청 후 고착 여부 판정
-# 목적: 결제 클릭 후 payment request URL 고착 여부를 CHECK_PAYMENT_RESULT로 판정
+# @title: 결제 요청 후 고착 여부 판정
+# @tier: full
+# @area: payment
+# @pages: /checkout/order-sheets
 
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
 WAIT_FOR 1200

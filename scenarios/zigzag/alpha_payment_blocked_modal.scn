@@ -1,5 +1,7 @@
-# 결제 차단 모달 캡처
-# 목적: 결제 시도 후 활성 모달/차단 메시지 캡처
+# @title: 결제 차단 모달 캡처
+# @tier: full
+# @area: payment
+# @pages: /checkout/order-sheets
 
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
 WAIT_FOR 1200
