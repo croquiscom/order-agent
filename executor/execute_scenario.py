@@ -3603,6 +3603,18 @@ def run_scenario(
                     print(f"  URL: {agent_browser('get', 'url', check=False).stdout.strip()}")
                     return 0
 
+                # EVAL 결과가 REPORT: 이면 사전조건 미충족 — 사유 리포트 후 시나리오 정상 종결
+                if command.action == "EVAL" and "REPORT:" in eval_output:
+                    report_msg = eval_output.split("REPORT:", 1)[1].strip().strip('"')
+                    logger.warning("사전조건 미충족 — %s", report_msg)
+                    print(f"\n[REPORT] 시나리오 사전조건 미충족으로 정상 종결합니다.")
+                    print(f"  사유: {report_msg}")
+                    try:
+                        print(f"  URL: {agent_browser('get', 'url', check=False).stdout.strip()}")
+                    except Exception:
+                        pass
+                    return 0
+
             except AgentBrowserError as exc:
                 retried = False
                 text_fallback_retried = False
