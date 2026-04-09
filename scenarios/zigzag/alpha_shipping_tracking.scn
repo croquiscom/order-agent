@@ -1,0 +1,24 @@
+# @title: 배송 추적 페이지 확인
+# @tier: regression
+# @area: order, shipping
+# @pages: /checkout/orders, /shipping-tracking
+
+# 1) 주문 목록 진입
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
+
+# 2) 배송중 또는 배송완료 주문 진입
+APPLY_ORDER_STATUS_FILTER 배송완료
+WAIT_FOR 1500
+CLICK_ORDER_DETAIL_BY_STATUS 배송완료
+WAIT_URL /checkout/orders/
+WAIT_FOR 1200
+
+# 3) 배송조회 버튼 클릭
+EVAL "(function() { var norm = function(s) { return (s || '').replace(/\\s+/g, '').trim(); }; var btns = [].slice.call(document.querySelectorAll('button,[role=button],a')); var btn = null; for (var i = 0; i < btns.length; i++) { var t = norm(btns[i].textContent); if (t === '배송조회' || t === '배송추적' || t.indexOf('배송현황') >= 0) { btn = btns[i]; break; } } if (!btn) return 'REPORT:배송조회_버튼_없음:배송추적 가능한 주문이 아닐 수 있습니다'; btn.click(); return 'clicked:배송조회'; })()"
+WAIT_FOR 2000
+
+# 4) 배송 추적 페이지 확인
+EVAL "(function() { var url = location.href; var body = (document.body.innerText || '').replace(/\\s+/g, ''); if (url.indexOf('/shipping-tracking') >= 0) return 'shipping_tracking_page_ok'; if (body.indexOf('배송현황') >= 0 || body.indexOf('운송장') >= 0 || body.indexOf('택배') >= 0) return 'shipping_tracking_content_ok'; return 'REPORT:배송추적_페이지_미도달:url=' + url; })()"
+DUMP_STATE shipping_tracking
