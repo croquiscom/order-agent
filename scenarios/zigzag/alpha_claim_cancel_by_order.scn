@@ -1,6 +1,8 @@
-# 지정 주문번호 취소 요청
-# 사용법: python3 execute_scenario.py alpha_claim_cancel_by_order.scn --var order_number=주문번호
-# 목적: 특정 주문번호의 주문 상세 진입 후 취소 요청 완료까지 검증
+# @title: 지정 주문번호 취소 요청
+# @tier: regression
+# @area: claim, cancel
+# @pages: /checkout/orders, /claim
+# @usage: python3 executor/execute_scenario.py --var order_number=<주문번호> scenarios/zigzag/alpha_claim_cancel_by_order.scn
 
 # 1) 주문 상세 직접 진입 (ENSURE_LOGIN이 이미 해당 URL로 이동)
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders/{{order_number}}

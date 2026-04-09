@@ -1,5 +1,7 @@
-# alpha 클레임 교환 정책 차단 검증 시나리오
-# 목적: 협찬 프로모션 등 정책상 교환 불가 주문에 대해 POLICY_BLOCKED 에러가 정상 발생하는지 검증
+# @title: 교환 정책 차단 검증
+# @tier: regression
+# @area: claim, exchange
+# @pages: /checkout/orders, /claim
 
 # 1) 주문 목록 진입 + 배송완료 필터 (필터 초기화를 위해 NAVIGATE로 새로고침)
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders

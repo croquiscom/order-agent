@@ -1,7 +1,8 @@
-# 교환 클레임 요청 + 비용 결제 완료 (입력형 옵션 상품)
-# 목적: 입력형 옵션(텍스트 입력 필드 + 드롭다운 조합) 상품에 대해 교환 요청 → 교환비용 결제 → 완료까지 검증
-# 대상: 교환 옵션 선택 시 라디오 버튼 대신 텍스트 입력 필드와 드롭다운 셀렉터가 조합된 상품
-# 사용법: python3 services/zigzag/scripts/execute_scenario.py --var ORDER_NO=<주문번호> alpha_claim_exchange_input_option.scn
+# @title: 교환 클레임 — 입력형 옵션 상품
+# @tier: regression
+# @area: claim, exchange, payment
+# @pages: /checkout/orders, /claim
+# @usage: python3 executor/execute_scenario.py --var ORDER_NO=<주문번호> scenarios/zigzag/alpha_claim_exchange_input_option.scn
 
 # 1) 로그인 확인 + 지정 주문상세 직접 진입
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders

@@ -1,5 +1,7 @@
-# 장바구니 단건 구매 완료 — 스토어배송
-# 목표: 상품페이지 -> 장바구니 담기 -> 대상 상품만 선택 -> 포인트 전액 결제 -> 주문완료 확인
+# @title: 장바구니 단건 구매 완료 — 스토어배송
+# @tier: regression
+# @area: cart, order, payment, checkout
+# @pages: /catalog/products, /checkout/cart, /checkout/order-sheets, /checkout/order-complete
 
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
 WAIT_FOR 1200

@@ -1,6 +1,8 @@
-# 지정 주문번호 반품 요청 + 비용 결제
-# 사용법: python3 execute_scenario.py alpha_claim_return_by_order.scn --var order_number=주문번호
-# 목적: 특정 주문번호의 주문 상세 진입 후 반품 요청 → 비용 결제 완료까지 검증
+# @title: 지정 주문번호 반품 요청 + 비용 결제
+# @tier: regression
+# @area: claim, return, payment
+# @pages: /checkout/orders, /claim
+# @usage: python3 executor/execute_scenario.py --var order_number=<주문번호> scenarios/zigzag/alpha_claim_return_by_order.scn
 
 # 1) 주문 상세 직접 진입
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders/{{order_number}}

@@ -1,6 +1,8 @@
-# AWS SSO 로그인 시나리오
-# 사용법: python3 executor/execute_scenario.py scenarios/aws/sso_login.scn
-#
+# @title: AWS SSO 로그인
+# @tier: full
+# @area: infra, login
+# @usage: python3 executor/execute_scenario.py scenarios/aws/sso_login.scn
+
 # AWS_SSO_USERNAME / AWS_SSO_PASSWORD 환경변수를 .env에 설정해야 합니다.
 # OTP는 Authenticator 확장프로그램의 "AWS SSO" 계정에서 자동 읽기합니다.
 

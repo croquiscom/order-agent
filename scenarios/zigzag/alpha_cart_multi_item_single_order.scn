@@ -1,5 +1,7 @@
-# 장바구니 다건 중 단건만 주문
-# 목적: 기존 담김 상품이 여러 개인 상태에서도 타겟 상품만 선택해 주문서 진입
+# @title: 장바구니 다건 중 단건만 주문
+# @tier: regression
+# @area: cart, order
+# @pages: /checkout/cart, /checkout/order-sheets
 
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
 WAIT_FOR 1200

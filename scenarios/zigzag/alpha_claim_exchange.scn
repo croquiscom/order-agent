@@ -1,6 +1,8 @@
-# 교환 클레임 요청 + 비용 결제 완료
-# 목적: 유저가 지정한 주문(ORDER_NO)에 대해 교환 요청 → 교환비용 결제 → 완료까지 검증
-# 사용법: python3 services/zigzag/scripts/execute_scenario.py --var ORDER_NO=<주문번호> alpha_claim_exchange.scn
+# @title: 교환 클레임 요청 + 비용 결제 완료
+# @tier: smoke
+# @area: claim, exchange, payment
+# @pages: /checkout/orders, /claim
+# @usage: python3 executor/execute_scenario.py --var ORDER_NO=<주문번호> scenarios/zigzag/alpha_claim_exchange.scn
 
 # 1) 로그인 확인 + 지정 주문상세 직접 진입
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders

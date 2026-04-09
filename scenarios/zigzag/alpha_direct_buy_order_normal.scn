@@ -1,6 +1,7 @@
-# 바로구매 주문 생성 — 스토어배송 (주문번호 변경 검증)
-# 기본 플로우: 사이트 접속 -> 상품페이지 -> 옵션선택 -> 바로구매 -> 포인트 전액 -> 결제완료
-# 성공 기준: 결제 전/후 최신 orderNumber(주문번호) 변경
+# @title: 바로구매 주문 생성 — 스토어배송
+# @tier: smoke
+# @area: order, payment
+# @pages: /catalog/products, /checkout/order-sheets
 
 # 0) 결제 전 최신 orderNumber baseline 저장
 ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders

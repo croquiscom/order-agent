@@ -1,10 +1,8 @@
-# alpha 전체 진행 이력 통합 회귀 시나리오
-# 목적:
-# 1) 로그인 + PDP 구매 진입 시도(100136725)
-# 2) 동일 상품 재진입/안정성 확인(100136725)
-# 3) 장바구니 경유 주문서 진입
-# 4) 포인트 전액 결제 버튼/확인 모달 동작 및 상태 덤프
-# 주의: alpha 특성상 최종 완료 URL 전환은 가변적이므로 본 시나리오는 증적 수집 중심으로 구성
+# @title: 전체 진행 이력 통합 회귀
+# @tier: full
+# @area: order, cart, payment
+# @pages: /catalog/products, /checkout/cart, /checkout/order-sheets
+# @usage: python3 executor/execute_scenario.py --var username=<email> --var password=<pw> scenarios/zigzag/alpha_full_history_regression.scn
 
 NAVIGATE https://alpha.zigzag.kr/auth/email-login?redirect=https%3A%2F%2Falpha.zigzag.kr%2Fmy-page
 WAIT_FOR 1000
