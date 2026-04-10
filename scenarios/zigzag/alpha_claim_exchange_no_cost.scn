@@ -1,0 +1,34 @@
+# @title: 추가비용 없는 교환 (동일 옵션 교환)
+# @tier: regression
+# @area: claim, exchange
+# @pages: /checkout/orders, /claim
+# @usage: python3 executor/execute_scenario.py --var ORDER_NO=<주문번호> scenarios/zigzag/alpha_claim_exchange_no_cost.scn
+# @note: 단일 옵션 상품 또는 동일 옵션 교환 시 /order-sheets/exchange 결제 시트 없이 주문상세로 직행
+
+# 1) 로그인 확인 + 지정 주문상세 직접 진입
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders/{{ORDER_NO}}
+WAIT_FOR 1500
+
+# 2) 교환하기 버튼 확인 및 클릭 → 교환 요청 페이지 진입 (불가 시 사유 리포트 후 종결)
+EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const btns=[...document.querySelectorAll('button,[role=button],a,div.btn')]; const leaf=btns.find(el=>{ const t=norm(el.textContent); return t==='교환하기' || t==='교환신청'; }); if(!leaf){ const body=norm(document.body.innerText||''); const reasons=[]; if(body.includes('구매확정')) reasons.push('구매확정 상태'); if(body.includes('교환불가')) reasons.push('교환불가 상품'); if(body.includes('취소완료')) reasons.push('취소완료 상태'); if(body.includes('반품')) reasons.push('반품 진행중'); if(body.includes('교환요청')||body.includes('교환중')||body.includes('교환완료')) reasons.push('이미 교환 처리됨'); if(!reasons.length) reasons.push('교환하기 버튼 없음(사유 불명)'); return 'CLAIM_NOT_AVAILABLE:' + reasons.join(','); } leaf.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return 'clicked:'+norm(leaf.textContent); })()"
+WAIT_URL /request-exchange
+WAIT_FOR 700
+
+# 3) 교환 사유 선택 + 제출
+SUBMIT_EXCHANGE_REQUEST "__ASK__"
+CHECK_NOT_URL /request-exchange
+
+# 4) 추가비용 없는 교환 검증: 결제 시트(/order-sheets/exchange)로 가지 않아야 함
+CHECK_NOT_URL /order-sheets/exchange
+
+# 5) 완료 후 주문상세 직접 진입 확인
+DUMP_STATE exchange_no_cost_submitted
+
+# 6) 주문상세로 이동 (이미 주문상세이면 스킵, 완료 페이지에서 버튼 클릭)
+EVAL "(() => { if(location.href.includes('/checkout/orders/')) return 'already_on_order_detail'; var t=function(el){return(el.textContent||'').replace(/\\s+/g,'').trim();}; var btn=[...document.querySelectorAll('a,button,[role=button],div,span')].find(function(el){var s=t(el);return s==='주문상세보기'||s==='주문 상세보기';}); if(btn){btn.click();return 'clicked_order_detail';} throw new Error('order_detail_button_not_found'); })()"
+WAIT_URL /checkout/orders/
+
+# 7) 교환 결과 상태 확인
+EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); if (!(t.includes('교환요청') || t.includes('교환중') || t.includes('교환완료'))) throw new Error('exchange_result_status_not_found'); return 'exchange_result_status_ok'; })()"
+DUMP_STATE claim_exchange_no_cost
