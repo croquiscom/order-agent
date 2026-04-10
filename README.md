@@ -119,12 +119,28 @@ FILL input[name=orderNumber] {{order_number}}
 
 ---
 
+## 시나리오 커버리지 맵
+
+시나리오 추가/변경 시 커버리지 현황을 자동 생성할 수 있다.
+
+```bash
+make map           # 터미널 리포트 (카테고리, 티어, 영역, 액션 커버리지)
+make map-gaps      # 미커버 액션만 표시
+make map-update    # docs/order_flow_map.md 자동 갱신
+make map-json      # CI 연동용 JSON 출력
+```
+
+전체 플로우 맵과 커버리지 매트릭스는 [`docs/order_flow_map.md`](docs/order_flow_map.md) 참조.
+
+---
+
 ## 참조 문서
 
 | 문서 | 설명 |
 |---|---|
 | [`docs/cli-reference.md`](docs/cli-reference.md) | CLI 옵션, 환경변수, 트러블슈팅 |
 | [`docs/manual-setup-guide.md`](docs/manual-setup-guide.md) | 수동 설정 가이드 |
+| [`docs/order_flow_map.md`](docs/order_flow_map.md) | 주문 플로우 맵 + 커버리지 매트릭스 (자동 생성) |
 | [`docs/scenarios.md`](docs/scenarios.md) | 시나리오 인벤토리 |
 | [`docs/input_interaction_patterns.md`](docs/input_interaction_patterns.md) | 클레임 UI 입력 패턴 |
 | [`.claude/skills/scenario-guide/SKILL.md`](.claude/skills/scenario-guide/SKILL.md) | 시나리오 작성 가이드 및 체크리스트 |
