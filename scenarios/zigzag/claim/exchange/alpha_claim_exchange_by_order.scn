@@ -1,0 +1,26 @@
+# @title: 지정 주문번호 교환 요청 + 비용 결제
+# @tier: regression
+# @area: claim, exchange, payment
+# @pages: /checkout/orders, /claim
+# @usage: python3 executor/execute_scenario.py --var order_number=<주문번호> scenarios/zigzag/alpha_claim_exchange_by_order.scn
+# @priority: P1
+# @lifecycle: regression
+# @preconditions: order_status=배송완료, claim_type=교환, payment=테스트결제
+
+# 1) 주문풀에서 배송완료 주문 할당 (--var order_number=xxx 로 직접 지정 가능)
+PICK_ORDER_FROM_POOL 배송완료 order_number
+
+# 2) 주문 상세 직접 진입
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders/{{order_number}}
+NAVIGATE https://alpha.zigzag.kr/checkout/orders/{{order_number}}
+WAIT_FOR 1500
+
+# 3) 교환하기 버튼 확인 및 클릭 -> 교환 요청 페이지 진입 (불가 시 사유 리포트 후 종결)
+INCLUDE ../../_blocks/exchange_request_and_submit.scn
+
+# 4) 교환비용 결제 (포인트 전액 -> 0원 결제만 허용, 포인트 부족 시 리포트 종결)
+INCLUDE ../../_blocks/exchange_zero_pay.scn
+
+# 5) 완료 페이지에서 주문상세 이동 + 결과 확인 (추가비용 없는 교환은 이미 주문상세일 수 있음)
+INCLUDE ../../_blocks/exchange_complete_check.scn
+DUMP_STATE claim_exchange_by_order

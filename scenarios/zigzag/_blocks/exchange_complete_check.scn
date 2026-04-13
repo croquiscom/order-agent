@@ -1,0 +1,4 @@
+# 완료 페이지에서 주문상세 이동 + 결과 확인 (추가비용 없는 교환은 이미 주문상세일 수 있음)
+EVAL "(() => { if(location.href.includes('/checkout/orders/')) return 'already_on_order_detail'; var t=function(el){return(el.textContent||'').replace(/\\s+/g,'').trim();}; var btn=[...document.querySelectorAll('a,button,[role=button],div,span')].find(function(el){var s=t(el);return s==='주문상세보기'||s==='주문 상세보기';}); if(btn){btn.click();return 'clicked_order_detail';} throw new Error('order_detail_button_not_found'); })()"
+WAIT_URL /checkout/orders/
+EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); if (!(t.includes('교환요청') || t.includes('교환중') || t.includes('교환완료'))) throw new Error('exchange_result_status_not_found'); return 'exchange_result_status_ok'; })()"

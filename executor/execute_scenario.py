@@ -24,7 +24,7 @@ from core.doctor import collect_doctor_checks, doctor_passed, doctor_summary, pr
 from core.logger import setup_logger
 from core.runner import AgentBrowserError, _browser_profile_dir, active_profile_name, agent_browser
 
-DEFAULT_SCENARIO = REPO_ROOT / "scenarios" / "zigzag" / "alpha_direct_buy_complete_normal.scn"
+DEFAULT_SCENARIO = REPO_ROOT / "scenarios" / "zigzag" / "checkout" / "alpha_direct_buy_complete_normal.scn"
 ALLOWED_ACTIONS = {
     "NAVIGATE",
     "CLICK",
@@ -58,6 +58,13 @@ ALLOWED_ACTIONS = {
     "READ_OTP",
     "ENSURE_LOGIN_GRAFANA",
     "ENSURE_LOGIN_AWS_SSO",
+    "PICK_ORDER_FROM_POOL",
+    "WAIT_NETWORK_IDLE",
+    "SCREENSHOT_COMPARE",
+    "IF",
+    "ELSE_IF",
+    "ELSE",
+    "ENDIF",
 }
 BLOCKED_CLICK_TARGETS = {"confirm_payment"}
 ORDER_SHEET_ID_PATTERN = re.compile(r"/checkout/order-sheets/([a-f0-9-]+)")
@@ -75,12 +82,21 @@ class ScenarioMetadata:
     area: list[str] = None
     pages: list[str] = None
     usage: str = ""
+    task: str = ""
+    priority: str = ""
+    lifecycle: str = ""
+    tags: dict[str, str] = None
+    preconditions: dict[str, str] = None  # e.g. {"order_status": "배송완료", "claim_type": "교환"}
 
     def __post_init__(self):
         if self.area is None:
             self.area = []
         if self.pages is None:
             self.pages = []
+        if self.tags is None:
+            self.tags = {}
+        if self.preconditions is None:
+            self.preconditions = {}
 
 
 _META_TAG_RE = re.compile(r"^#\s*@(\w+):\s*(.+)$")
@@ -108,6 +124,19 @@ def parse_metadata(path: Path) -> ScenarioMetadata:
                 meta.pages = [v.strip() for v in value.split(",")]
             elif key == "usage":
                 meta.usage = value
+            elif key == "task":
+                meta.task = value
+            elif key == "priority":
+                meta.priority = value
+            elif key == "lifecycle":
+                meta.lifecycle = value
+            elif key == "preconditions":
+                for item in value.split(","):
+                    item = item.strip()
+                    if "=" in item:
+                        k, v = item.split("=", 1)
+                        meta.preconditions[k.strip()] = v.strip()
+            meta.tags[key] = value
     return meta
 
 
@@ -116,9 +145,47 @@ class ScenarioCommand:
     line_no: int
     action: str
     args: list[str]
+    source_file: Path | None = None
 
 
-def parse_scenario(path: Path) -> list[ScenarioCommand]:
+_MAX_INCLUDE_DEPTH = 5
+SCENARIOS_ROOT = REPO_ROOT / "scenarios"
+
+
+def parse_scenario(
+    path: Path,
+    _include_stack: list[Path] | None = None,
+) -> list[ScenarioCommand]:
+    """Parse a ``.scn`` file into a list of :class:`ScenarioCommand`.
+
+    Supports ``INCLUDE <path>`` directives that inline commands from another
+    file.  Paths are resolved relative to the current file's directory; a
+    leading ``/`` is treated as relative to ``scenarios/``.
+
+    ``_include_stack`` is used internally for cycle/depth detection and should
+    not be passed by callers.
+    """
+    if _include_stack is None:
+        _include_stack = []
+
+    resolved = path.resolve()
+
+    # Circular-include guard
+    if resolved in _include_stack:
+        chain = " -> ".join(p.name for p in _include_stack)
+        raise ValueError(
+            f"circular INCLUDE detected: {chain} -> {resolved.name}"
+        )
+
+    # Depth guard
+    if len(_include_stack) >= _MAX_INCLUDE_DEPTH:
+        chain = " -> ".join(p.name for p in _include_stack)
+        raise ValueError(
+            f"INCLUDE depth exceeds maximum ({_MAX_INCLUDE_DEPTH}): {chain} -> {resolved.name}"
+        )
+
+    _include_stack.append(resolved)
+
     commands: list[ScenarioCommand] = []
     with open(path, "r", encoding="utf-8") as f:
         for line_no, raw_line in enumerate(f, 1):
@@ -132,9 +199,46 @@ def parse_scenario(path: Path) -> list[ScenarioCommand]:
             if not tokens:
                 continue
             action = tokens[0]
+
+            # --- ELSE IF -> ELSE_IF normalisation ---
+            if action == "ELSE" and len(tokens) >= 2 and tokens[1] == "IF":
+                action = "ELSE_IF"
+                tokens = ["ELSE_IF"] + tokens[2:]
+
+            # --- INCLUDE directive (consumed at parse time) ---
+            if action == "INCLUDE":
+                if len(tokens) < 2:
+                    raise ValueError(
+                        f"line {line_no} in {path.name}: INCLUDE requires a file path argument"
+                    )
+                include_path_str = tokens[1]
+                if include_path_str.startswith("/"):
+                    # Absolute = relative to scenarios/ root
+                    include_path = (SCENARIOS_ROOT / include_path_str.lstrip("/")).resolve()
+                else:
+                    # Relative to the current file's directory
+                    include_path = (path.parent / include_path_str).resolve()
+
+                if not include_path.exists():
+                    chain = " -> ".join(p.name for p in _include_stack)
+                    raise FileNotFoundError(
+                        f"line {line_no} in {path.name}: INCLUDE file not found: "
+                        f"{include_path} (include chain: {chain})"
+                    )
+
+                included = parse_scenario(include_path, _include_stack)
+                # Tag each included command with its source file
+                for cmd in included:
+                    if cmd.source_file is None:
+                        cmd.source_file = include_path
+                commands.extend(included)
+                continue
+
             if action not in ALLOWED_ACTIONS:
                 raise ValueError(f"line {line_no}: unknown action '{action}'")
             commands.append(ScenarioCommand(line_no=line_no, action=action, args=tokens[1:]))
+
+    _include_stack.pop()
     return commands
 
 
@@ -166,6 +270,18 @@ def validate_command(command: ScenarioCommand) -> None:
         raise ValueError(f"line {line_no}: EXPECT_FAIL takes 0 or 1 argument (optional error code pattern)")
     if action == "READ_OTP" and not (1 <= len(args) <= 2):
         raise ValueError(f"line {line_no}: READ_OTP requires 1-2 arguments: <account_name> [var_name]")
+    if action == "PICK_ORDER_FROM_POOL" and not (1 <= len(args) <= 2):
+        raise ValueError(f"line {line_no}: PICK_ORDER_FROM_POOL requires 1-2 arguments: <status> [var_name]")
+    if action == "WAIT_NETWORK_IDLE" and len(args) > 1:
+        raise ValueError(f"line {line_no}: WAIT_NETWORK_IDLE takes 0 or 1 argument (optional idle_ms)")
+    if action == "SCREENSHOT_COMPARE" and not (1 <= len(args) <= 2):
+        raise ValueError(f"line {line_no}: SCREENSHOT_COMPARE requires 1-2 arguments: <tag> [--save-baseline]")
+    if action in {"IF", "ELSE_IF"} and len(args) not in {2, 3}:
+        raise ValueError(f"line {line_no}: {action} requires 2 or 3 arguments (e.g. {{{{VAR}}}} == \"value\" or {{{{VAR}}}} exists)")
+    if action == "ELSE" and len(args) != 0:
+        raise ValueError(f"line {line_no}: ELSE requires no arguments")
+    if action == "ENDIF" and len(args) != 0:
+        raise ValueError(f"line {line_no}: ENDIF requires no arguments")
     if action == "FILL" and len(args) < 2:
         raise ValueError(f"line {line_no}: FILL requires field_id and value")
     if action == "CLICK" and args and args[0] in BLOCKED_CLICK_TARGETS:
@@ -174,6 +290,106 @@ def validate_command(command: ScenarioCommand) -> None:
                 f"line {line_no}: CLICK {args[0]} blocked by safety guard "
                 "(set ALLOW_REAL_PAYMENT=1 to override)"
             )
+
+
+_MAX_IF_NESTING = 3
+_CONDITION_OPERATORS = {"==", "!=", "contains", "not_contains", "exists", "not_exists"}
+
+
+def _validate_control_flow(commands: list[ScenarioCommand]) -> dict[int, int]:
+    """Validate IF/ELSE_IF/ELSE/ENDIF balance and build a jump table.
+
+    Returns a dict mapping each control-flow command index to its
+    counterpart (IF->ELSE/ELSE_IF/ENDIF, ELSE_IF->next ELSE_IF/ELSE/ENDIF,
+    ELSE->ENDIF).  Raises ``ValueError`` on structural errors.
+    """
+    jump_table: dict[int, int] = {}
+    # Stack entries: (if_index, depth, list of branch indices in this block)
+    stack: list[tuple[int, list[int]]] = []
+
+    for i, cmd in enumerate(commands):
+        if cmd.action == "IF":
+            if len(stack) >= _MAX_IF_NESTING:
+                raise ValueError(
+                    f"line {cmd.line_no}: IF nesting exceeds maximum depth ({_MAX_IF_NESTING})"
+                )
+            stack.append((i, [i]))
+        elif cmd.action in {"ELSE_IF", "ELSE"}:
+            if not stack:
+                raise ValueError(
+                    f"line {cmd.line_no}: {cmd.action} without matching IF"
+                )
+            _if_idx, branches = stack[-1]
+            # ELSE must be last branch
+            prev_cmd = commands[branches[-1]]
+            if prev_cmd.action == "ELSE":
+                raise ValueError(
+                    f"line {cmd.line_no}: {cmd.action} after ELSE in same IF block"
+                )
+            # Map previous branch -> this one
+            jump_table[branches[-1]] = i
+            branches.append(i)
+        elif cmd.action == "ENDIF":
+            if not stack:
+                raise ValueError(
+                    f"line {cmd.line_no}: ENDIF without matching IF"
+                )
+            _if_idx, branches = stack.pop()
+            # Map last branch -> ENDIF
+            jump_table[branches[-1]] = i
+            # Also map ENDIF to itself (for clarity, optional)
+
+    if stack:
+        _if_idx, branches = stack[-1]
+        raise ValueError(
+            f"line {commands[_if_idx].line_no}: IF without matching ENDIF"
+        )
+
+    return jump_table
+
+
+def _eval_condition(args: list[str], _vars: dict[str, str]) -> bool:
+    """Evaluate a condition expression from IF/ELSE_IF args.
+
+    Supported forms:
+      - ``{{VAR}} == "value"``  /  ``{{VAR}} != "value"``
+      - ``{{VAR}} contains "sub"``  /  ``{{VAR}} not_contains "sub"``
+      - ``{{VAR}} exists``  /  ``{{VAR}} not_exists``
+    """
+    import re as _re
+
+    def _resolve(token: str) -> str:
+        return _re.sub(
+            r"\{\{(\w+)\}\}",
+            lambda m: _vars.get(m.group(1).lower(), ""),
+            token,
+        )
+
+    if len(args) == 2:
+        # exists / not_exists
+        lhs = _resolve(args[0])
+        op = args[1]
+        if op == "exists":
+            return bool(lhs)
+        if op == "not_exists":
+            return not bool(lhs)
+        raise ValueError(f"unsupported 2-arg condition operator: {op}")
+
+    if len(args) == 3:
+        lhs = _resolve(args[0])
+        op = args[1]
+        rhs = _resolve(args[2])
+        if op == "==":
+            return lhs == rhs
+        if op == "!=":
+            return lhs != rhs
+        if op == "contains":
+            return rhs in lhs
+        if op == "not_contains":
+            return rhs not in lhs
+        raise ValueError(f"unsupported condition operator: {op}")
+
+    raise ValueError(f"condition requires 2 or 3 arguments, got {len(args)}")
 
 
 def normalize_selector(selector: str) -> str:
@@ -2855,6 +3071,7 @@ def run_scenario(
         logger.warning("No commands to execute.")
         return 0
 
+    _validate_control_flow(commands)
     logger.info("Total commands: %s", len(commands))
     last_order_sheet_id: str | None = None
     if LAST_ORDER_SHEET_FILE.exists():
@@ -2890,7 +3107,91 @@ def run_scenario(
         _base_url = (base_url or "").rstrip("/") if base_url else None
         if _base_url:
             logger.info("Base URL override: %s → %s", _default_base_url, _base_url)
-        for idx, command in enumerate(commands, 1):
+        # --- condition stack for IF/ELSE_IF/ELSE/ENDIF ---
+        _condition_stack: list[bool] = []  # True = active block
+        _branch_taken: list[bool] = []  # True = some branch already matched at this level
+        _cmd_idx = 0
+        while _cmd_idx < len(commands):
+            command = commands[_cmd_idx]
+            idx = _cmd_idx + 1  # 1-based step number
+            _cmd_idx += 1
+
+            # --- control-flow: IF/ELSE_IF/ELSE/ENDIF ---
+            if command.action == "IF":
+                _source_tag = f" (from {command.source_file.name})" if command.source_file else ""
+                if dry_run:
+                    indent = "  " * len(_condition_stack)
+                    logger.info("[DRY-RUN] %sIF %s", indent, " ".join(command.args))
+                parent_active = all(_condition_stack) if _condition_stack else True
+                if parent_active:
+                    # Resolve vars in args for evaluation
+                    resolved_args = []
+                    for a in command.args:
+                        resolved_args.append(re.sub(r"\{\{(\w+)\}\}", lambda m: _vars.get(m.group(1).lower(), m.group(0)), a))
+                    result = _eval_condition(resolved_args, _vars)
+                    _condition_stack.append(result)
+                    _branch_taken.append(result)
+                else:
+                    _condition_stack.append(False)
+                    _branch_taken.append(False)
+                step_start_times.append(time.time())
+                continue
+
+            if command.action == "ELSE_IF":
+                _source_tag = f" (from {command.source_file.name})" if command.source_file else ""
+                if dry_run:
+                    indent = "  " * (len(_condition_stack) - 1)
+                    logger.info("[DRY-RUN] %sELSE_IF %s", indent, " ".join(command.args))
+                if not _condition_stack:
+                    raise ValueError(f"line {command.line_no}: ELSE_IF without matching IF")
+                parent_active = all(_condition_stack[:-1]) if len(_condition_stack) > 1 else True
+                if parent_active and not _branch_taken[-1]:
+                    resolved_args = []
+                    for a in command.args:
+                        resolved_args.append(re.sub(r"\{\{(\w+)\}\}", lambda m: _vars.get(m.group(1).lower(), m.group(0)), a))
+                    result = _eval_condition(resolved_args, _vars)
+                    _condition_stack[-1] = result
+                    if result:
+                        _branch_taken[-1] = True
+                else:
+                    _condition_stack[-1] = False
+                step_start_times.append(time.time())
+                continue
+
+            if command.action == "ELSE":
+                _source_tag = f" (from {command.source_file.name})" if command.source_file else ""
+                if dry_run:
+                    indent = "  " * (len(_condition_stack) - 1)
+                    logger.info("[DRY-RUN] %sELSE", indent)
+                if not _condition_stack:
+                    raise ValueError(f"line {command.line_no}: ELSE without matching IF")
+                parent_active = all(_condition_stack[:-1]) if len(_condition_stack) > 1 else True
+                if parent_active and not _branch_taken[-1]:
+                    _condition_stack[-1] = True
+                else:
+                    _condition_stack[-1] = False
+                step_start_times.append(time.time())
+                continue
+
+            if command.action == "ENDIF":
+                _source_tag = f" (from {command.source_file.name})" if command.source_file else ""
+                if dry_run:
+                    indent = "  " * (len(_condition_stack) - 1)
+                    logger.info("[DRY-RUN] %sENDIF", indent)
+                if not _condition_stack:
+                    raise ValueError(f"line {command.line_no}: ENDIF without matching IF")
+                _condition_stack.pop()
+                _branch_taken.pop()
+                step_start_times.append(time.time())
+                continue
+
+            # --- skip commands in inactive blocks ---
+            if _condition_stack and not all(_condition_stack):
+                _source_tag = f" (from {command.source_file.name})" if command.source_file else ""
+                logger.debug("[SKIP] line %s%s: %s (inactive IF block)", command.line_no, _source_tag, command.action)
+                step_start_times.append(time.time())
+                continue
+
             step_start_times.append(time.time())
             # {{var}} 치환
             if _vars and any("{{" in a for a in command.args):
@@ -2898,11 +3199,11 @@ def run_scenario(
                 expanded = []
                 for a in command.args:
                     expanded.append(_re.sub(r"\{\{(\w+)\}\}", lambda m: _vars.get(m.group(1).lower(), m.group(0)), a))
-                command = ScenarioCommand(line_no=command.line_no, action=command.action, args=expanded)
+                command = ScenarioCommand(line_no=command.line_no, action=command.action, args=expanded, source_file=command.source_file)
             # base URL 치환
             if _base_url and any(_default_base_url in a for a in command.args):
                 rewritten = [a.replace(_default_base_url, _base_url) for a in command.args]
-                command = ScenarioCommand(line_no=command.line_no, action=command.action, args=rewritten)
+                command = ScenarioCommand(line_no=command.line_no, action=command.action, args=rewritten, source_file=command.source_file)
             validate_command(command)
 
             # EXPECT_FAIL 미소비 체크: 타겟 스텝이 실패 없이 성공하면 EXPECT_FAIL 위반
@@ -2949,8 +3250,12 @@ def run_scenario(
                 "CHECK_PAYMENT_RESULT",
                 "EXPECT_FAIL",
                 "READ_OTP",
+                "PICK_ORDER_FROM_POOL",
+                "WAIT_NETWORK_IDLE",
+                "SCREENSHOT_COMPARE",
             } else to_agent_browser_args(command)
-            logger.info("[STEP %s/%s] line %s: %s", idx, len(commands), command.line_no, " ".join([command.action, *command.args]))
+            _source_tag = f" (from {command.source_file.name})" if command.source_file else ""
+            logger.info("[STEP %s/%s] line %s%s: %s", idx, len(commands), command.line_no, _source_tag, " ".join([command.action, *command.args]))
 
             if dry_run:
                 if command.action in {"CHECK_URL", "CHECK_NOT_URL", "WAIT_URL", "DUMP_STATE"}:
@@ -2994,11 +3299,64 @@ def run_scenario(
                 elif command.action == "READ_OTP":
                     var_name = command.args[1] if len(command.args) > 1 else "otp"
                     logger.info("[DRY-RUN] READ_OTP '%s' -> {{%s}}", command.args[0], var_name)
+                elif command.action == "PICK_ORDER_FROM_POOL":
+                    status_hint = command.args[0]
+                    var_name = command.args[1] if len(command.args) > 1 else "ORDER_NO"
+                    logger.info("[DRY-RUN] PICK_ORDER_FROM_POOL '%s' -> {{%s}}", status_hint, var_name)
+                elif command.action == "WAIT_NETWORK_IDLE":
+                    idle_ms = int(command.args[0]) if command.args else 500
+                    logger.info("[DRY-RUN] WAIT_NETWORK_IDLE %dms", idle_ms)
+                elif command.action == "SCREENSHOT_COMPARE":
+                    tag = command.args[0]
+                    save_baseline = len(command.args) > 1 and command.args[1] == "--save-baseline"
+                    logger.info("[DRY-RUN] SCREENSHOT_COMPARE '%s'%s", tag, " (save-baseline)" if save_baseline else "")
                 else:
                     logger.info("[DRY-RUN] agent-browser %s", " ".join(cli_args))
                 continue
 
             try:
+                if command.action == "PICK_ORDER_FROM_POOL":
+                    from core.fixture_pool import OrderPool
+                    status_hint = command.args[0]
+                    var_name = command.args[1] if len(command.args) > 1 else "ORDER_NO"
+                    # --var로 이미 지정된 경우 풀 할당 생략
+                    existing = _vars.get(var_name.lower())
+                    if existing:
+                        logger.info("PICK_ORDER_FROM_POOL: {{%s}} already set to '%s' via --var, skipping pool", var_name, existing)
+                    else:
+                        pool = OrderPool()
+                        picked = pool.pick(status_hint)
+                        _vars[var_name.lower()] = picked
+                        logger.info("PICK_ORDER_FROM_POOL: status='%s' -> {{%s}} = %s", status_hint, var_name, picked)
+                    continue
+
+                if command.action == "WAIT_NETWORK_IDLE":
+                    idle_ms = int(command.args[0]) if command.args else 500
+                    browser.wait_network_idle(idle_ms=idle_ms)
+                    logger.info("WAIT_NETWORK_IDLE: %dms idle achieved", idle_ms)
+                    continue
+
+                if command.action == "SCREENSHOT_COMPARE":
+                    from core.screenshot_compare import compare_screenshots, BASELINES_DIR
+                    tag = command.args[0]
+                    save_baseline = len(command.args) > 1 and command.args[1] == "--save-baseline"
+                    baseline_path = BASELINES_DIR / f"{tag}.png"
+                    actual_path = Path(REPO_ROOT) / "logs" / f"screenshot_{tag}.png"
+                    # Capture current screenshot
+                    browser.screenshot(str(actual_path))
+                    if save_baseline:
+                        BASELINES_DIR.mkdir(parents=True, exist_ok=True)
+                        import shutil
+                        shutil.copy2(str(actual_path), str(baseline_path))
+                        logger.info("SCREENSHOT_COMPARE: baseline saved -> %s", baseline_path)
+                    else:
+                        diff_path = Path(REPO_ROOT) / "logs" / f"screenshot_{tag}_diff.png"
+                        result = compare_screenshots(baseline_path, actual_path, diff_output=diff_path)
+                        logger.info("SCREENSHOT_COMPARE: %s (diff=%.4f)", result.message, result.diff_ratio)
+                        if not result.match:
+                            raise RuntimeError(f"Screenshot mismatch: {result.message}")
+                    continue
+
                 if command.action == "READ_OTP":
                     from core.otp_reader import read_otp
                     account_name = command.args[0]
@@ -3858,6 +4216,13 @@ def parse_args() -> argparse.Namespace:
         metavar="URL",
         help="Override base URL (default: https://alpha.zigzag.kr). All scenario URLs are rewritten.",
     )
+    parser.add_argument(
+        "--tag",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Filter scenarios by metadata tag (e.g. --tag priority=P0 --tag task=ORDER-11850). Only matching scenarios are executed.",
+    )
     return parser.parse_args()
 
 
@@ -3893,6 +4258,39 @@ def main() -> None:
             raise SystemExit(2)
         k, v = var_expr.split("=", 1)
         scenario_vars[k.strip()] = v.strip()
+
+    # --tag KEY=VALUE 필터링
+    tag_filters: dict[str, str] = {}
+    for tag_expr in args.tag:
+        if "=" not in tag_expr:
+            print(f"[ERROR] Invalid --tag format: {tag_expr!r} (expected KEY=VALUE)", file=sys.stderr)
+            raise SystemExit(2)
+        k, v = tag_expr.split("=", 1)
+        tag_filters[k.strip().lower()] = v.strip().lower()
+
+    if tag_filters:
+        filtered: list[Path] = []
+        for sp in scenario_paths:
+            meta = parse_metadata(sp)
+            match = True
+            for fk, fv in tag_filters.items():
+                tag_val = meta.tags.get(fk, "")
+                if fk == "area":
+                    # area는 쉼표 분리 리스트이므로 포함 여부 확인
+                    if fv not in [a.lower() for a in meta.area]:
+                        match = False
+                        break
+                elif tag_val.lower() != fv:
+                    match = False
+                    break
+            if match:
+                filtered.append(sp)
+        if not filtered:
+            tag_desc = ", ".join(f"{k}={v}" for k, v in tag_filters.items())
+            print(f"[INFO] No scenarios matched tags: {tag_desc} (from {len(scenario_paths)} candidates)", file=sys.stderr)
+            raise SystemExit(0)
+        print(f"[INFO] Tag filter matched {len(filtered)}/{len(scenario_paths)} scenarios", file=sys.stderr)
+        scenario_paths = filtered
 
     total = len(scenario_paths)
     overall_exit_code = 0

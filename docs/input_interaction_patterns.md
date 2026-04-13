@@ -166,4 +166,49 @@
 
 ---
 
-*최종 업데이트: 2026-03-10*
+## 7. EVAL 금액 검증 표준 패턴
+
+시나리오에서 `EVAL`로 금액 정합성을 검증하는 표준 패턴입니다.
+"버튼이 보인다" ≠ "금액이 맞다" — 금액 cross-check로 비즈니스 로직 정합성을 높입니다.
+
+### 7-1. 주문 상세 금액 불변식
+
+주문 상세 페이지에서 상품금액, 배송비, 할인, 총 결제금액의 합산이 일치하는지 검증합니다.
+
+```scn
+# 주문 상세 금액 합산 검증
+EVAL "(() => { const getText = (label) => { const els = [...document.querySelectorAll('*')]; const el = els.find(e => e.textContent.trim().startsWith(label) && e.children.length === 0); if (!el) return null; const row = el.closest('[class*=row],[class*=item],[class*=info]') || el.parentElement; const nums = row.textContent.match(/[\\d,]+/g); return nums ? parseInt(nums[nums.length-1].replace(/,/g,'')) : null; }; const product = getText('상품금액'); const shipping = getText('배송비'); const discount = getText('할인') || 0; const total = getText('결제금액') || getText('총 결제금액'); if (product === null || total === null) return 'SKIP:금액_요소_미발견'; const expected = product + shipping - discount; const ok = Math.abs(expected - total) < 2; return ok ? 'PRICE_CHECK:PASS' : 'PRICE_CHECK:FAIL:expected=' + expected + ',actual=' + total; })()"
+```
+
+### 7-2. 교환 비용 결제 시트 금액 검증
+
+교환 비용 결제 시트(`/order-sheets/exchange`)에서 추가 결제금액이 0 이상인지 확인합니다.
+
+```scn
+# 교환 추가비용 검증 (0원이면 결제 스킵 예상)
+EVAL "(() => { const body = document.body.innerText || ''; const match = body.match(/추가\\s*결제\\s*금액[^\\d]*(\\d[\\d,]*)/); if (!match) return 'SKIP:추가결제금액_미발견'; const amount = parseInt(match[1].replace(/,/g,'')); return amount === 0 ? 'EXCHANGE_COST:ZERO' : 'EXCHANGE_COST:' + amount + '원'; })()"
+```
+
+### 7-3. 클레임 완료 후 환불금액 존재 확인
+
+취소/반품 완료 후 환불 예정 금액이 표시되는지 검증합니다.
+
+```scn
+# 환불금액 표시 여부 확인
+EVAL "(() => { const body = document.body.innerText || ''; const hasRefund = /환불\\s*(예정\\s*)?금액/.test(body); const match = body.match(/환불\\s*(?:예정\\s*)?금액[^\\d]*(\\d[\\d,]*)/); if (!hasRefund) return 'REFUND_CHECK:NO_LABEL'; if (!match) return 'REFUND_CHECK:LABEL_ONLY'; const amount = parseInt(match[1].replace(/,/g,'')); return amount > 0 ? 'REFUND_CHECK:PASS:' + amount + '원' : 'REFUND_CHECK:ZERO'; })()"
+```
+
+### 7-4. 사용 가이드
+
+| 패턴 | 삽입 위치 | 기대 결과 |
+|------|----------|----------|
+| 7-1 주문 상세 금액 | `NAVIGATE` 후, 클레임 진입 전 | `PRICE_CHECK:PASS` |
+| 7-2 교환 비용 시트 | `WAIT_URL /order-sheets/exchange` 후 | `EXCHANGE_COST:ZERO` 또는 금액 |
+| 7-3 환불금액 확인 | 클레임 완료 후 주문 상세 복귀 시 | `REFUND_CHECK:PASS:N원` |
+
+> **주의**: `SKIP:*` 결과는 에러가 아니라 해당 요소가 페이지에 없는 경우입니다.
+> 시나리오에서 `EXPECT_FAIL`과 조합하지 마세요.
+
+---
+
+*최종 업데이트: 2026-04-10*

@@ -1,0 +1,32 @@
+# @title: 클레임 완료 페이지 확인
+# @tier: regression
+# @area: claim
+# @pages: /checkout/orders, /claim-order-completed
+# @priority: P2
+# @lifecycle: regression
+# @preconditions: order_status=클레임완료
+
+# 1) 주문 목록 진입
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
+
+# 2) 클레임 필터로 전환 + 취소 가능 주문 진입
+CLICK_ORDER_DETAIL_WITH_ACTION 취소
+WAIT_URL /checkout/orders/
+WAIT_FOR 1200
+
+# 3) 취소 진행 → 완료 페이지 도달
+EVAL "(function() { var norm = function(s) { return (s || '').replace(/\\s+/g, '').trim(); }; var btns = [].slice.call(document.querySelectorAll('button,[role=button],a,div.btn')); var btn = null; for (var i = 0; i < btns.length; i++) { var t = norm(btns[i].textContent); if (t === '취소하기') { btn = btns[i]; break; } } if (!btn) return 'REPORT:취소하기_버튼_없음'; btn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window})); return 'clicked:취소하기'; })()"
+WAIT_URL /request-cancel
+WAIT_FOR 700
+
+# 4) 취소 사유 선택 + 제출
+SUBMIT_CANCEL_REQUEST "__ASK__"
+CHECK_URL /checkout/orders/
+CHECK_NOT_URL /request-cancel
+WAIT_FOR 1000
+
+# 5) 클레임 완료 상태 확인 (claim-order-completed 또는 주문상세에서 취소 상태 확인)
+EVAL "(function() { var url = location.href; var body = (document.body.innerText || '').replace(/\\s+/g, ''); if (url.indexOf('/claim-order-completed') >= 0) return 'claim_completed_page'; if (body.indexOf('취소완료') >= 0 || body.indexOf('취소요청') >= 0) return 'claim_result_on_order_detail'; return 'REPORT:클레임완료_확인불가:url=' + url; })()"
+DUMP_STATE claim_completed_view

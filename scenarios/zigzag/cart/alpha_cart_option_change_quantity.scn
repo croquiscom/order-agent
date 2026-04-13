@@ -1,0 +1,43 @@
+# @title: 장바구니 옵션변경 — 수량 변경 및 동일옵션 검증
+# @tier: regression
+# @area: cart, option-change
+# @pages: /checkout/cart
+# @task: ORDER-11850
+# @priority: P1
+# @lifecycle: active
+# @preconditions: order_status=결제완료
+# @description: 수량 스텝퍼 동작, 동일 옵션 선택 시 수량 추가, 수량만 변경 시 수량 업데이트 검증
+
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/cart
+
+# ── 1) 장바구니에 테스트 상품 담기 ──
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 2200
+EVAL "(async () => { const text=(el)=>(el&&el.textContent?el.textContent:'').replace(/\\s+/g,'').trim(); const btn=(name)=>[...document.querySelectorAll('button,[role=button]')].find(b=>text(b)===name); const buy=btn('구매하기'); if(!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r=>setTimeout(r,500)); const cart=btn('장바구니'); if(!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart'; })()"
+WAIT_FOR 1500
+
+NAVIGATE https://alpha.zigzag.kr/checkout/cart
+WAIT_FOR 2000
+
+# ── 2) 옵션변경 모달 열기 ──
+CLICK_SNAPSHOT_TEXT "옵션변경"
+WAIT_FOR 1200
+
+# ── AC4: 수량 스텝퍼 제한 없음 확인 (max 속성 부재) ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const numInput = modal.querySelector('input[type=number], [class*=stepper] input, [class*=Stepper] input, [class*=quantity] input'); if(!numInput) return 'WARN: no_number_input_found'; const maxAttr = numInput.getAttribute('max'); return maxAttr ? 'INFO: stepper_has_max=' + maxAttr : 'PASS: stepper_no_max_limit'; })()"
+
+# ── 수량 증가 테스트 (+ 버튼 클릭) ──
+EVAL "(async () => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const plusBtn = [...modal.querySelectorAll('button,[role=button]')].find(b => { const t = (b.textContent||'').trim(); const label = b.getAttribute('aria-label')||''; return t==='+' || t==='증가' || label.includes('증가') || label.includes('plus') || label.includes('increase'); }); if(!plusBtn) return 'WARN: no_plus_button'; const beforeInput = modal.querySelector('input[type=number], [class*=stepper] input, [class*=Stepper] input'); const beforeVal = beforeInput ? beforeInput.value : 'unknown'; plusBtn.click(); await new Promise(r=>setTimeout(r,300)); const afterInput = modal.querySelector('input[type=number], [class*=stepper] input, [class*=Stepper] input'); const afterVal = afterInput ? afterInput.value : 'unknown'; return 'qty_before:' + beforeVal + '_after:' + afterVal; })()"
+WAIT_FOR 500
+
+# ── AC1-2: 동일 옵션 선택 시 수량 추가 확인 ──
+# 현재 선택된 옵션과 동일한 옵션을 다시 선택하면 수량이 증가해야 함
+EVAL "(async () => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const checked = modal.querySelector('[aria-checked=true], [aria-selected=true], input[type=radio]:checked'); if(!checked) return 'WARN: no_checked_option'; const qtyBefore = modal.querySelector('input[type=number], [class*=stepper] input'); const valBefore = qtyBefore ? qtyBefore.value : '0'; checked.click(); await new Promise(r=>setTimeout(r,500)); const qtyAfter = modal.querySelector('input[type=number], [class*=stepper] input'); const valAfter = qtyAfter ? qtyAfter.value : '0'; return parseInt(valAfter) > parseInt(valBefore) ? 'PASS: same_option_qty_increased_' + valBefore + '_to_' + valAfter : 'INFO: qty_unchanged_' + valBefore + '_to_' + valAfter; })()"
+
+# ── AC9: 최소구매수량 밸리데이션 없음 확인 ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const numInput = modal.querySelector('input[type=number], [class*=stepper] input'); if(!numInput) return 'WARN: no_number_input'; const minAttr = numInput.getAttribute('min'); const text = modal.textContent||''; const hasMinMsg = text.includes('최소') && text.includes('수량'); return 'min_attr:' + (minAttr||'none') + '|min_msg:' + hasMinMsg; })()"
+
+PRESS Escape
+WAIT_FOR 500
+
+DUMP_STATE cart_option_change_quantity

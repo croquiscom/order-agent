@@ -1,0 +1,23 @@
+# @title: 포인트 부족 상태 증적
+# @tier: full
+# @area: payment
+# @pages: /checkout/order-sheets
+# @priority: P1
+# @lifecycle: regression
+
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 1200
+
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 2000
+EVAL "(async () => { const text = (el) => (el && el.textContent ? el.textContent : '').replace(/\\s+/g,'').trim(); const btn = (name) => [...document.querySelectorAll('button,[role=button]')].find(b => text(b) === name); const buy = btn('구매하기'); if (!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r => setTimeout(r, 500)); const direct = btn('바로구매'); if (!direct) throw new Error('no_direct_button'); direct.click(); return 'clicked_direct'; })()"
+WAIT_URL /checkout/order-sheets/
+CHECK_URL /checkout/order-sheets/
+CHECK_NEW_ORDER_SHEET
+
+WAIT_FOR "text=전액사용"
+CHECK "text=전액사용"
+CLICK_SNAPSHOT_TEXT "포인트 전액사용"
+WAIT_FOR 1200
+PRINT_ACTIVE_MODAL
+DUMP_STATE insufficient_points

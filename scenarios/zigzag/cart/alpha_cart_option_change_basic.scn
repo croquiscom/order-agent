@@ -1,0 +1,55 @@
+# @title: 장바구니 옵션변경 — 기본 동작 검증
+# @tier: regression
+# @area: cart, option-change
+# @pages: /catalog/products, /checkout/cart
+# @task: ORDER-11850
+# @priority: P1
+# @lifecycle: active
+# @preconditions: order_status=결제완료
+# @description: 옵션변경 모달 노출, 기존옵션 프리셋, 변경하기 버튼, 모달 내 정보 노출 검증
+
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/cart
+
+# ── 1) 장바구니에 테스트 상품 담기 (스토어배송 100136725) ──
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 2200
+EVAL "(async () => { const text=(el)=>(el&&el.textContent?el.textContent:'').replace(/\\s+/g,'').trim(); const btn=(name)=>[...document.querySelectorAll('button,[role=button]')].find(b=>text(b)===name); const buy=btn('구매하기'); if(!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r=>setTimeout(r,500)); const cart=btn('장바구니'); if(!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart'; })()"
+WAIT_FOR 1500
+
+# ── 2) 장바구니 이동 ──
+NAVIGATE https://alpha.zigzag.kr/checkout/cart
+WAIT_FOR 2000
+
+# ── AC1: 옵션변경 버튼 존재 확인 ──
+EVAL "(() => { const btn = [...document.querySelectorAll('button,[role=button]')].find(b => (b.textContent||'').includes('옵션변경')); return btn ? 'PASS: option_change_button_found' : 'FAIL: no_option_change_button'; })()"
+
+# ── AC1: 옵션변경 클릭 → 모달 노출 ──
+CLICK_SNAPSHOT_TEXT "옵션변경"
+WAIT_FOR 1200
+
+# ── AC1: 옵션선택 모달 존재 확인 ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); return modal ? 'PASS: option_modal_visible' : 'FAIL: no_option_modal'; })()"
+
+# ── AC2: 기존 옵션이 선택된 채로 노출 확인 ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const selected = modal.querySelector('[aria-selected=true], [aria-checked=true], .selected, [class*=selected], [class*=Selected]'); const radios = [...modal.querySelectorAll('[role=radio], input[type=radio]')].filter(r=>r.checked||r.getAttribute('aria-checked')==='true'); return (selected||radios.length>0) ? 'PASS: option_preselected' : 'WARN: no_preselected_option_detected'; })()"
+
+# ── AC3: 수량과 옵션 노출 확인 ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const hasQty = modal.querySelector('input[type=number], [class*=stepper], [class*=Stepper], [class*=quantity], [class*=Quantity]'); return hasQty ? 'PASS: quantity_stepper_found' : 'WARN: no_quantity_stepper_detected'; })()"
+
+# ── AC5: '변경하기' 버튼 존재 확인 (바로구매 → 변경하기로 변경) ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const changeBtn = [...modal.querySelectorAll('button,[role=button]')].find(b=>(b.textContent||'').includes('변경하기')); const buyBtn = [...modal.querySelectorAll('button,[role=button]')].find(b=>(b.textContent||'').includes('바로구매')); if(changeBtn && !buyBtn) return 'PASS: change_button_exists_no_buy_now'; if(changeBtn && buyBtn) return 'FAIL: both_change_and_buy_buttons'; return 'FAIL: no_change_button'; })()"
+
+# ── AC6-1: 옵션선택모달 내 배송비 정보 노출 ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'SKIP: no_modal'; const text = modal.textContent||''; const hasShipping = text.includes('배송비') || text.includes('무료배송') || text.includes('배송'); return hasShipping ? 'PASS: shipping_info_found' : 'WARN: no_shipping_info'; })()"
+
+# ── AC6-5: 재입고 알림버튼 확인 (품절 옵션 있을 경우) ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'SKIP: no_modal'; const text = modal.textContent||''; const hasRestock = text.includes('재입고') || text.includes('알림'); return hasRestock ? 'PASS: restock_alert_found' : 'INFO: no_restock_alert(normal_if_no_soldout)'; })()"
+
+# ── AC1-1: 옵션 미선택 시 변경하기 버튼 비활성화 확인 ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'SKIP: no_modal'; const changeBtn = [...modal.querySelectorAll('button,[role=button]')].find(b=>(b.textContent||'').includes('변경하기')); if(!changeBtn) return 'FAIL: no_change_button'; return changeBtn.disabled ? 'PASS: change_button_disabled_before_selection' : 'INFO: change_button_enabled(may_have_preselection)'; })()"
+
+# 모달 닫기
+PRESS Escape
+WAIT_FOR 500
+
+DUMP_STATE cart_option_change_basic

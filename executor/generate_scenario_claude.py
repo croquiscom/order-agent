@@ -58,6 +58,10 @@ Allowed actions:
 - CHECK_PAYMENT_RESULT
 - EXPECT_FAIL [pattern]
 - READ_OTP <account> [var]
+- IF {{VAR}} <op> "value"  (ops: ==, !=, contains, not_contains, exists, not_exists)
+- ELSE_IF {{VAR}} <op> "value"
+- ELSE
+- ENDIF
 
 Rules:
 - Base test domain must be https://alpha.zigzag.kr/
@@ -111,6 +115,10 @@ def validate_scenario_text(scenario: str) -> None:
             continue
         tokens = shlex.split(line)
         action = tokens[0] if tokens else ""
+        # ELSE IF -> ELSE_IF normalisation
+        if action == "ELSE" and len(tokens) >= 2 and tokens[1] == "IF":
+            action = "ELSE_IF"
+            tokens = ["ELSE_IF"] + tokens[2:]
         if action not in ALLOWED_ACTIONS:
             raise ValueError(f"line {line_no}: unknown action '{action}'")
         validate_command(ScenarioCommand(line_no=line_no, action=action, args=tokens[1:]))

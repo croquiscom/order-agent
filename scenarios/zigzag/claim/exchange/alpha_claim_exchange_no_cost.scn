@@ -1,0 +1,30 @@
+# @title: 추가비용 없는 교환 (동일 옵션 교환)
+# @tier: regression
+# @area: claim, exchange
+# @pages: /checkout/orders, /claim
+# @usage: python3 executor/execute_scenario.py --var ORDER_NO=<주문번호> scenarios/zigzag/alpha_claim_exchange_no_cost.scn
+# @note: 단일 옵션 상품 또는 동일 옵션 교환 시 /order-sheets/exchange 결제 시트 없이 주문상세로 직행
+# @priority: P1
+# @lifecycle: regression
+# @preconditions: order_status=배송완료, claim_type=교환
+
+# 1) 주문풀에서 배송완료 주문 할당 (--var ORDER_NO=xxx 로 직접 지정 가능)
+PICK_ORDER_FROM_POOL 배송완료 ORDER_NO
+
+# 2) 로그인 확인 + 지정 주문상세 직접 진입
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders/{{ORDER_NO}}
+WAIT_FOR 1500
+
+# 3) 교환하기 버튼 확인 및 클릭 -> 교환 요청 페이지 진입 (불가 시 사유 리포트 후 종결)
+INCLUDE ../../_blocks/exchange_request_and_submit.scn
+
+# 4) 추가비용 없는 교환 검증: 결제 시트(/order-sheets/exchange)로 가지 않아야 함
+CHECK_NOT_URL /order-sheets/exchange
+
+# 5) 완료 후 주문상세 직접 진입 확인
+DUMP_STATE exchange_no_cost_submitted
+
+# 6) 주문상세로 이동 + 교환 결과 상태 확인
+INCLUDE ../../_blocks/exchange_complete_check.scn
+DUMP_STATE claim_exchange_no_cost

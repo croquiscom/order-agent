@@ -16,8 +16,10 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from executor.execute_scenario import parse_metadata
 
-REQUIRED_TAGS = {"title", "tier", "area"}
+REQUIRED_TAGS = {"title", "tier", "area", "priority", "lifecycle"}
 VALID_TIERS = {"smoke", "regression", "full"}
+VALID_PRIORITIES = {"P0", "P1", "P2"}
+VALID_LIFECYCLES = {"active", "regression", "deprecated"}
 
 
 def lint_file(path: Path) -> list[str]:
@@ -32,6 +34,14 @@ def lint_file(path: Path) -> list[str]:
         errors.append(f"invalid @tier '{meta.tier}' (must be: {', '.join(sorted(VALID_TIERS))})")
     if not meta.area:
         errors.append("missing @area")
+    if not meta.priority:
+        errors.append("missing @priority")
+    elif meta.priority not in VALID_PRIORITIES:
+        errors.append(f"invalid @priority '{meta.priority}' (must be: {', '.join(sorted(VALID_PRIORITIES))})")
+    if not meta.lifecycle:
+        errors.append("missing @lifecycle")
+    elif meta.lifecycle not in VALID_LIFECYCLES:
+        errors.append(f"invalid @lifecycle '{meta.lifecycle}' (must be: {', '.join(sorted(VALID_LIFECYCLES))})")
 
     return errors
 

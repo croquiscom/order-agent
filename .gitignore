@@ -31,6 +31,10 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Fixture pool runtime files
+fixtures/.order_pool.lock
+fixtures/.order_pool_allocated.json
+
 # Environment
 .env
 .env.local

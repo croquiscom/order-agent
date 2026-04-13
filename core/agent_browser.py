@@ -328,6 +328,43 @@ class AgentBrowser:
         """호환성을 위한 프로퍼티. CDP에서는 self 반환."""
         return self
 
+    def wait_network_idle(self, idle_ms: int = 500, timeout: float = 30.0) -> None:
+        """네트워크 요청이 모두 완료될 때까지 대기.
+
+        Network.requestWillBeSent / Network.loadingFinished / Network.loadingFailed
+        이벤트를 추적하여, pending 요청이 0이 되고 idle_ms 동안 새 요청이 없으면 반환.
+
+        Args:
+            idle_ms: 마지막 네트워크 활동 후 유휴 판정 시간 (밀리초)
+            timeout: 최대 대기 시간 (초)
+        """
+        self._send("Network.enable")
+        pending = 0
+        last_activity = time.time()
+        deadline = time.time() + timeout
+        idle_sec = idle_ms / 1000.0
+
+        while time.time() < deadline:
+            elapsed_since_activity = time.time() - last_activity
+            if pending <= 0 and elapsed_since_activity >= idle_sec:
+                break
+
+            self._ws.settimeout(max(0.05, min(idle_sec - elapsed_since_activity, deadline - time.time())))
+            try:
+                raw = self._ws.recv()
+                msg = json.loads(raw)
+                method = msg.get("method", "")
+                if method == "Network.requestWillBeSent":
+                    pending += 1
+                    last_activity = time.time()
+                elif method in ("Network.loadingFinished", "Network.loadingFailed"):
+                    pending = max(0, pending - 1)
+                    last_activity = time.time()
+            except websocket.WebSocketTimeoutException:
+                continue
+
+        print(f"OK: network idle (pending={pending})")
+
     def open(self, url: str) -> None:
         self._send("Page.navigate", {"url": url})
         # 페이지 로드 완료 대기

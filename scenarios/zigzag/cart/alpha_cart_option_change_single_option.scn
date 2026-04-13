@@ -1,0 +1,36 @@
+# @title: 장바구니 옵션변경 — 단일옵션 상품 얼럿 검증
+# @tier: regression
+# @area: cart, option-change
+# @pages: /catalog/products, /checkout/cart
+# @task: ORDER-11850
+# @priority: P2
+# @lifecycle: active
+# @preconditions: order_status=결제완료
+# @description: 단일옵션 상품에서 옵션변경 클릭 시 "변경할 수 있는 옵션이 없습니다" 얼럿 노출 검증
+
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/cart
+
+# ── 1) 단일옵션 상품(Free사이즈 등)을 장바구니에 담기 ──
+# NOTE: 단일옵션 테스트 상품 ID가 필요합니다. 아래는 placeholder.
+# 실제 환경에서 단일옵션 상품 ID로 교체 필요.
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 2200
+EVAL "(async () => { const text=(el)=>(el&&el.textContent?el.textContent:'').replace(/\\s+/g,'').trim(); const btn=(name)=>[...document.querySelectorAll('button,[role=button]')].find(b=>text(b)===name); const buy=btn('구매하기'); if(!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r=>setTimeout(r,500)); const cart=btn('장바구니'); if(!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart'; })()"
+WAIT_FOR 1500
+
+# ── 2) 장바구니 이동 ──
+NAVIGATE https://alpha.zigzag.kr/checkout/cart
+WAIT_FOR 2000
+
+# ── 3) 옵션변경 클릭 ──
+CLICK_SNAPSHOT_TEXT "옵션변경"
+WAIT_FOR 1200
+
+# ── 단일옵션 얼럿 확인: "변경할 수 있는 옵션이 없습니다" ──
+EVAL "(async () => { await new Promise(r=>setTimeout(r,500)); const alertText = '변경할 수 있는 옵션이 없습니다'; const allText = document.body.textContent || ''; if(allText.includes(alertText)) return 'PASS: single_option_alert_shown'; const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [role=alertdialog], [class*=alert], [class*=Alert]'); if(modal && (modal.textContent||'').includes(alertText)) return 'PASS: single_option_alert_in_modal'; const toast = document.querySelector('[class*=toast], [class*=Toast], [role=alert]'); if(toast && (toast.textContent||'').includes(alertText)) return 'PASS: single_option_alert_toast'; return 'INFO: alert_not_detected(product_may_have_multiple_options)'; })()"
+
+# 얼럿 닫기
+EVAL "(() => { const ok = [...document.querySelectorAll('button,[role=button]')].find(b=>(b.textContent||'').trim()==='확인'); if(ok) { ok.click(); return 'closed_alert'; } return 'no_alert_to_close'; })()"
+WAIT_FOR 500
+
+DUMP_STATE cart_option_change_single_option

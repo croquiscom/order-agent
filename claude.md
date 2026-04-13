@@ -93,6 +93,15 @@ URL 검증:
 - `EVAL <expression>` — JavaScript 표현식 실행
 - `DUMP_STATE <tag>` — 현재 페이지 상태 덤프
 
+데이터 관리:
+- `PICK_ORDER_FROM_POOL <status> [var_name]` — fixture 주문풀에서 해당 상태의 주문번호를 할당하여 `{{var_name}}`에 저장 (기본 var: `ORDER_NO`). `--var`로 이미 지정된 경우 풀 할당 생략. 풀 관리: `fixtures/order_pool.json`
+
+네트워크 동기화:
+- `WAIT_NETWORK_IDLE [idle_ms]` — CDP Network 이벤트를 추적하여 모든 네트워크 요청이 완료되고 idle_ms(기본 500ms) 동안 새 요청이 없을 때까지 대기. 페이지 전환 후 API 응답 완료를 보장할 때 사용
+
+스크린샷 비교:
+- `SCREENSHOT_COMPARE <tag> [--save-baseline]` — 현재 화면을 캡처하여 `fixtures/screenshots/<tag>.png` 베이스라인과 비교. `--save-baseline` 플래그로 최초 베이스라인 저장. diff 이미지는 `logs/screenshot_<tag>_diff.png`에 생성
+
 디버깅/테스트 제어:
 - `PRINT_ACTIVE_MODAL` — 현재 활성 모달 상태 출력 (인자 없음)
 - `EXPECT_FAIL [error_pattern]` — 다음 액션이 실패할 것으로 예상 표시 (선택적 에러 코드 패턴)
