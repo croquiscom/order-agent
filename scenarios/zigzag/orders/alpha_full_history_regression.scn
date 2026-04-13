@@ -1,0 +1,51 @@
+# @title: 전체 진행 이력 통합 회귀
+# @tier: full
+# @area: order, cart, payment
+# @pages: /catalog/products, /checkout/cart, /checkout/order-sheets
+# @usage: python3 executor/execute_scenario.py --var username=<email> --var password=<pw> scenarios/zigzag/alpha_full_history_regression.scn
+# @priority: P0
+# @lifecycle: regression
+
+NAVIGATE https://alpha.zigzag.kr/auth/email-login?redirect=https%3A%2F%2Falpha.zigzag.kr%2Fmy-page
+WAIT_FOR 1000
+FILL "[placeholder*='abc@email.com']" {{username}}
+FILL "[placeholder*='영문, 숫자, 특수문자 포함 8자 이상']" {{password}}
+CLICK text=로그인
+WAIT_FOR 1500
+
+# 1차 PDP (요청 상품)
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 1500
+CLICK text=구매하기
+WAIT_FOR 1200
+DUMP_STATE after_pdp_100136725_buy_click
+
+# 2차 PDP (동일 상품 재검증)
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 1500
+CLICK text=구매하기
+WAIT_FOR 1200
+DUMP_STATE after_pdp_100136725_second_buy_click
+
+# 장바구니 -> 주문서
+NAVIGATE https://alpha.zigzag.kr/checkout/cart?from=pdp
+WAIT_FOR 1500
+CLICK text=구매하기
+WAIT_URL /checkout/order-sheets/
+CHECK_URL /checkout/order-sheets/
+CHECK_NEW_ORDER_SHEET
+
+# 주문서: 포인트 전액 + 결제 시도
+CLICK "text=포인트 전액사용"
+WAIT_FOR 800
+CHECK "text=0원 구매하기"
+PRESS End
+WAIT_FOR 300
+CLICK "text=주문내용 확인 및 결제 동의"
+WAIT_FOR 400
+DUMP_STATE before_zero_pay_submit
+CLICK "text=0원 구매하기"
+WAIT_FOR 1500
+CLICK text=확인
+WAIT_FOR 2500
+DUMP_STATE after_zero_pay_confirm

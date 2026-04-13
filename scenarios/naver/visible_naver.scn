@@ -1,6 +1,8 @@
 # @title: 네이버 요소 가시성 테스트
 # @tier: full
 # @area: naver
+# @priority: P2
+# @lifecycle: active
 
 NAVIGATE https://www.naver.com
 WAIT_FOR #query

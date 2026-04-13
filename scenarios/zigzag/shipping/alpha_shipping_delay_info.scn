@@ -1,0 +1,23 @@
+# @title: 배송 지연 안내 페이지 확인
+# @tier: full
+# @area: order, shipping
+# @pages: /checkout/orders, /shipping-schedule-delay-info
+# @priority: P2
+# @lifecycle: regression
+
+# 1) 주문 목록 진입
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
+
+# 2) 배송지연 상태 주문 탐색 (특수 상태이므로 없을 가능성 높음)
+EVAL "(function() { var norm = function(s) { return (s || '').replace(/\\s+/g, '').trim(); }; var elems = [].slice.call(document.querySelectorAll('*')); var found = null; for (var i = 0; i < elems.length; i++) { var t = norm(elems[i].textContent); if ((t === '배송지연' || t.indexOf('배송지연') >= 0) && elems[i].offsetHeight > 0 && t.length < 10) { found = elems[i]; break; } } if (!found) return 'REPORT:배송지연_주문_없음:현재 배송지연 상태 주문이 없습니다 (정상)'; var link = found.closest('a'); if (!link) { var p = found.parentElement; while (p && p !== document.body) { if (p.tagName === 'A') { link = p; break; } p = p.parentElement; } } if (link) { link.click(); return 'clicked_delay_order'; } return 'REPORT:배송지연_주문_클릭불가'; })()"
+WAIT_FOR 1500
+
+# 3) 배송지연 안내 버튼/링크 클릭
+EVAL "(function() { if (location.href.indexOf('/checkout/orders/') < 0) return 'REPORT:주문상세_미도달:배송지연 주문 없음으로 스킵'; var norm = function(s) { return (s || '').replace(/\\s+/g, '').trim(); }; var btns = [].slice.call(document.querySelectorAll('button,[role=button],a')); var btn = null; for (var i = 0; i < btns.length; i++) { var t = norm(btns[i].textContent); if (t.indexOf('배송지연') >= 0 || t.indexOf('지연안내') >= 0) { btn = btns[i]; break; } } if (!btn) return 'REPORT:배송지연_버튼_없음'; btn.click(); return 'clicked:배송지연'; })()"
+WAIT_FOR 1500
+
+# 4) 배송 지연 안내 페이지 확인
+EVAL "(function() { var url = location.href; var body = (document.body.innerText || '').replace(/\\s+/g, ''); if (url.indexOf('/shipping-schedule-delay-info') >= 0) return 'shipping_delay_page_ok'; if (url.indexOf('/shipping-defer') >= 0) return 'shipping_defer_page_instead'; if (body.indexOf('배송지연') >= 0 || body.indexOf('예정일변경') >= 0) return 'shipping_delay_content_ok'; return 'REPORT:배송지연_페이지_미도달:url=' + url; })()"
+DUMP_STATE shipping_delay_info

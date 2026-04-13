@@ -1,0 +1,44 @@
+# @title: 바로구매 주문 생성 — 직진배송
+# @tier: regression
+# @area: order, payment
+# @pages: /catalog/products, /checkout/order-sheets
+# @priority: P0
+# @lifecycle: regression
+# @preconditions: product_type=직진배송, payment=테스트결제
+
+# 0) 결제 전 최신 orderNumber baseline 저장
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 3500
+CLICK_SNAPSHOT_TEXT "주문상세 보기"
+WAIT_FOR 2000
+WAIT_URL /checkout/orders/
+SAVE_ORDER_NUMBER
+
+# 1) 상품페이지 진입
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100100014
+WAIT_FOR 2200
+
+# 2) 옵션 선택 + 바로구매
+EVAL "(async () => { const text=(el)=>(el.textContent||'').trim(); const visible=(el)=>{ const r=el.getBoundingClientRect(); return r.width>0&&r.height>0; }; const btn=(name)=>[...document.querySelectorAll('button')].find(b=>text(b)===name&&visible(b)); const buy=btn('구매하기'); if(!buy) return 'no_buy_button'; buy.click(); await new Promise(r=>setTimeout(r,450)); const excluded=new Set(['구매하기','장바구니','바로구매','닫기','확인']); const clicked=new Set(); for(let i=0;i<5;i++){ if(location.href.includes('/checkout/order-sheets/')) return 'moved_order_sheet'; const direct=btn('바로구매'); if(direct){ direct.click(); await new Promise(r=>setTimeout(r,550)); if(location.href.includes('/checkout/order-sheets/')) return 'moved_order_sheet'; } const candidates=[...document.querySelectorAll('button,[role=button],li,div')].filter(el=>{ const t=text(el); if(!t||excluded.has(t)||clicked.has(t)) return false; if(t.length>20) return false; if(el.closest('[aria-hidden=true]')) return false; const disabled=el.disabled||el.getAttribute('aria-disabled')==='true'; return !disabled&&visible(el); }); if(!candidates.length) continue; candidates[0].click(); clicked.add(text(candidates[0])); await new Promise(r=>setTimeout(r,350)); } return location.href; })()"
+
+WAIT_URL /checkout/order-sheets/
+CHECK_URL from=product
+CHECK_NEW_ORDER_SHEET
+
+# 3) 포인트 전액 + 결제
+WAIT_FOR "text=전액사용"
+WAIT_FOR 1500
+CLICK_SNAPSHOT_TEXT "포인트 전액사용"
+WAIT_FOR 2000
+CLICK_SNAPSHOT_TEXT "포인트 전액사용"
+WAIT_FOR 1500
+CHECK "text=0원"
+EVAL "(()=>{const cbs=document.querySelectorAll('input[type=checkbox]');for(const cb of cbs){if((cb.closest('section')||cb.parentElement).textContent.includes('주문내용 확인 및 결제 동의')){cb.click();return 'checked_agree'}}return 'not_found'})()"
+WAIT_FOR 1000
+CLICK_SNAPSHOT_TEXT "0원"
+WAIT_FOR 2000
+CHECK_PAYMENT_RESULT
+
+# 4) 결제 완료 페이지에서 주문번호 변경 확인
+CHECK_ORDER_NUMBER_CHANGED
+DUMP_STATE direct_buy_order_zigzin

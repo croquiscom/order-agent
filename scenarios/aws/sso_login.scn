@@ -1,6 +1,8 @@
 # @title: AWS SSO 로그인
 # @tier: full
 # @area: infra, login
+# @priority: P2
+# @lifecycle: active
 # @usage: python3 executor/execute_scenario.py scenarios/aws/sso_login.scn
 
 # AWS_SSO_USERNAME / AWS_SSO_PASSWORD 환경변수를 .env에 설정해야 합니다.

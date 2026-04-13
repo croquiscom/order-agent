@@ -1,0 +1,52 @@
+# @title: 다건 주문 부분반품
+# @tier: regression
+# @area: claim, return, partial
+# @pages: /checkout/orders, /claim
+# @note: 다건 주문(배송완료)에서 일부 상품만 반품 — 나머지 상품은 배송완료 상태 유지 확인
+# @priority: P1
+# @lifecycle: regression
+# @preconditions: order_status=배송완료, claim_type=반품, special=다건주문
+
+# 1) 주문 목록 진입 + 배송완료 필터 (필터 초기화를 위해 NAVIGATE로 새로고침)
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
+APPLY_ORDER_STATUS_FILTER 배송완료
+
+# 2) 반품 가능한 주문상세 진입 (배송완료 상태)
+CLICK_ORDER_DETAIL_WITH_ACTION 반품
+WAIT_URL /checkout/orders/
+WAIT_FOR 1200
+
+# 3) 현재 주문상세 ID 저장 (부분반품 후 동일 주문상세에 남아있어야 함)
+SAVE_ORDER_DETAIL_ID
+DUMP_STATE before_partial_return
+
+# 4) 반품하기 클릭 → 반품 요청 페이지 진입
+EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const all=[...document.querySelectorAll('*')]; const leaf=all.find(el=>norm(el.textContent)==='반품하기' || norm(el.textContent)==='반품신청' || norm(el.textContent)==='반품'); if(!leaf) throw new Error('no_return_action'); const clickable=leaf.closest('button,[role=button],a,[role=link],[tabindex],div,span') || leaf; clickable.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(clickable.textContent)}`; })()"
+WAIT_URL /request-return
+WAIT_FOR 700
+
+# 5) 부분반품: 첫 번째 상품만 선택 (전체 선택 해제 후 단건 선택)
+# 반품 요청 페이지에서 체크박스가 기본 전체 선택된 경우 일부만 선택하도록 조정
+EVAL "(() => { const norm=(s)=>(s||'').replace(/\\s+/g,'').trim(); const checkboxes=[...document.querySelectorAll('input[type=checkbox]')]; if(checkboxes.length<=1) return 'single_item_only:partial_return_not_applicable'; const allChecked=checkboxes.filter(c=>c.checked); if(allChecked.length>1){ for(let i=1;i<allChecked.length;i++){ const lbl=allChecked[i].closest('label') || allChecked[i].parentElement; if(lbl) lbl.click(); else allChecked[i].click(); } return 'unchecked_extras:kept_first_only'; } return 'already_single:no_change'; })()"
+WAIT_FOR 500
+
+# 6) 반품 사유 선택 + 제출
+SUBMIT_RETURN_REQUEST "__ASK__"
+CHECK_NOT_URL /request-return
+
+# 7) 반품비용 결제 (포인트 전액 → 0원 결제)
+EVAL "(() => { const url=location.href; if(!url.includes('/order-sheets/return')) return 'skip_return_cost_sheet'; const txt=(el)=>(el.textContent||'').replace(/\\s+/g,'').trim(); const full=[...document.querySelectorAll('button,[role=button],a,div,span')].find(el=>txt(el).includes('전액사용')); if(full){ (full.closest('button,[role=button],a,div,span')||full).click(); } return full ? 'point_full_clicked' : 'no_point_full_button'; })()"
+WAIT_FOR 800
+EVAL "(() => { var url=location.href; if(!url.includes('/order-sheets/return')) return 'skip_no_return_cost_sheet'; var t=function(el){return(el.textContent||'').trim();}; var match=function(s){return s==='0원결제하기'||s==='0원구매하기'||s==='0원 결제하기'||s==='0원 구매하기';}; var btn=[...document.querySelectorAll('button')].find(function(el){return match(t(el));}); if(!btn) btn=[...document.querySelectorAll('[role=button],div,a,span')].find(function(el){return match(t(el));}); if(btn){btn.click();return 'zero_pay_clicked:'+btn.tagName;} return 'CLAIM_NOT_AVAILABLE:포인트 부족 — 반품비용 결제 필요, 실제 결제는 안전정책상 차단됨'; })()"
+WAIT_FOR 2000
+
+# 8) 완료 페이지에서 주문상세 이동
+EVAL "(() => { if(location.href.includes('/checkout/orders/')) return 'already_on_order_detail'; var t=function(el){return(el.textContent||'').replace(/\\s+/g,'').trim();}; var btn=[...document.querySelectorAll('a,button,[role=button],div,span')].find(function(el){var s=t(el);return s==='주문상세보기'||s==='주문 상세보기';}); if(btn){btn.click();return 'clicked_order_detail';} throw new Error('order_detail_button_not_found'); })()"
+WAIT_URL /checkout/orders/
+WAIT_FOR 800
+
+# 9) 부분반품 결과 확인: 반품요청된 상품 + 배송완료 유지 상품 함께 존재
+EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); const hasReturned=t.includes('반품요청')||t.includes('반품중')||t.includes('반품완료'); const hasDelivered=t.includes('배송완료'); if(!hasReturned) throw new Error('partial_return_status_not_found:no_returned_item'); if(!hasDelivered) return 'warn:no_delivered_item_found_may_be_single_item'; return 'partial_return_ok:returned_and_delivered_both_present'; })()"
+DUMP_STATE claim_return_partial

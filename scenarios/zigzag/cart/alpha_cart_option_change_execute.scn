@@ -1,0 +1,47 @@
+# @title: 장바구니 옵션변경 — 옵션 변경 실행 및 결과 검증
+# @tier: regression
+# @area: cart, option-change
+# @pages: /catalog/products, /checkout/cart
+# @task: ORDER-11850
+# @priority: P1
+# @lifecycle: active
+# @preconditions: order_status=결제완료
+# @description: 옵션 실제 변경 후 토스트, 가격 변경, 배송그룹 이동 검증
+
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/cart
+
+# ── 1) 장바구니에 테스트 상품 담기 ──
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 2200
+EVAL "(async () => { const text=(el)=>(el&&el.textContent?el.textContent:'').replace(/\\s+/g,'').trim(); const btn=(name)=>[...document.querySelectorAll('button,[role=button]')].find(b=>text(b)===name); const buy=btn('구매하기'); if(!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r=>setTimeout(r,500)); const cart=btn('장바구니'); if(!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart'; })()"
+WAIT_FOR 1500
+
+# ── 2) 장바구니 이동 & 변경 전 상태 저장 ──
+NAVIGATE https://alpha.zigzag.kr/checkout/cart
+WAIT_FOR 2000
+
+# 변경 전 가격 저장
+EVAL "(() => { const prices = [...document.querySelectorAll('[class*=price], [class*=Price], [class*=amount], [class*=Amount]')].map(el=>(el.textContent||'').trim()).filter(t=>t.includes('원')); window.__preChangePrice = prices.join('|'); return 'pre_price:' + window.__preChangePrice; })()"
+
+# ── 3) 옵션변경 모달 열기 ──
+CLICK_SNAPSHOT_TEXT "옵션변경"
+WAIT_FOR 1200
+
+# ── 4) 다른 옵션 선택 (라디오형/다단계 자동 대응) ──
+EVAL "(async () => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const radios = [...modal.querySelectorAll('[role=radio], input[type=radio], [role=option]')]; const unchecked = radios.filter(r => r.getAttribute('aria-checked')!=='true' && !r.checked && !(r.textContent||'').includes('품절') && !(r.textContent||'').includes('매진')); if(unchecked.length > 0) { unchecked[0].click(); await new Promise(r=>setTimeout(r,500)); return 'PASS: selected_different_option:' + (unchecked[0].textContent||'').trim().slice(0,30); } return 'WARN: no_alternative_option_available'; })()"
+WAIT_FOR 800
+
+# ── AC1-3: 변경하기 버튼 클릭 ──
+EVAL "(async () => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const changeBtn = [...modal.querySelectorAll('button,[role=button]')].find(b=>(b.textContent||'').includes('변경하기')); if(!changeBtn) return 'FAIL: no_change_button'; if(changeBtn.disabled) return 'FAIL: change_button_disabled'; changeBtn.click(); return 'PASS: clicked_change_button'; })()"
+WAIT_FOR 1500
+
+# ── AC7: 토스트 팝업 노출 확인 (ORDER-12629 개선됨) ──
+EVAL "(() => { const toast = document.querySelector('[class*=toast], [class*=Toast], [class*=snackbar], [class*=Snackbar], [role=alert], [role=status]'); if(toast && (toast.textContent||'').length > 0) return 'PASS: toast_shown:' + (toast.textContent||'').trim().slice(0,50); return 'WARN: no_toast_detected(may_have_disappeared)'; })()"
+
+# ── AC2 (가격): 옵션 변경 후 가격 변경 확인 ──
+EVAL "(() => { const prices = [...document.querySelectorAll('[class*=price], [class*=Price], [class*=amount], [class*=Amount]')].map(el=>(el.textContent||'').trim()).filter(t=>t.includes('원')); const postPrice = prices.join('|'); const changed = postPrice !== window.__preChangePrice; return changed ? 'PASS: price_changed_from[' + window.__preChangePrice + ']_to[' + postPrice + ']' : 'INFO: price_same(may_be_same_price_option)'; })()"
+
+# ── AC1 (배송그룹): 장바구니 리프레시 확인 ──
+EVAL "(() => { const items = [...document.querySelectorAll('[class*=cart-item], [class*=CartItem], [class*=product], [class*=Product]')]; return items.length > 0 ? 'PASS: cart_refreshed_items_count:' + items.length : 'WARN: no_cart_items_detected'; })()"
+
+DUMP_STATE cart_option_change_execute

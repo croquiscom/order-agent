@@ -165,7 +165,7 @@ class TestDryRun:
     def test_dry_run_does_not_call_browser(self):
         scn_path = (
             Path(__file__).resolve().parents[1]
-            / "scenarios" / "zigzag" / "alpha_direct_buy_complete_normal.scn"
+            / "scenarios" / "zigzag" / "checkout" / "alpha_direct_buy_complete_normal.scn"
         )
         with patch.dict(os.environ, {"ALLOW_REAL_PAYMENT": "1"}):
             with patch("executor.execute_scenario.agent_browser") as mock_browser:
@@ -173,3 +173,91 @@ class TestDryRun:
 
         mock_browser.assert_not_called()
         assert exit_code == 0
+
+
+class TestIfElseDryRun:
+    """IF/ELSE_IF/ELSE/ENDIF dry-run execution tests."""
+
+    def _run_if_scenario(self, content: str, scenario_vars: dict[str, str] | None = None) -> int:
+        import tempfile
+        f = tempfile.NamedTemporaryFile(mode="w", suffix=".scn", delete=False, encoding="utf-8")
+        f.write(content)
+        f.flush()
+        f.close()
+        scn_path = Path(f.name)
+        with patch("executor.execute_scenario.agent_browser") as mock_browser:
+            exit_code = run_scenario(scn_path, dry_run=True, continue_on_error=False, scenario_vars=scenario_vars)
+        mock_browser.assert_not_called()
+        return exit_code
+
+    def test_if_true_branch(self):
+        content = (
+            'IF {{MODE}} == "fast"\n'
+            "CHECK_URL /fast\n"
+            "ENDIF\n"
+        )
+        assert self._run_if_scenario(content, {"MODE": "fast"}) == 0
+
+    def test_if_false_branch_skipped(self):
+        content = (
+            'IF {{MODE}} == "fast"\n'
+            "CHECK_URL /fast\n"
+            "ENDIF\n"
+        )
+        assert self._run_if_scenario(content, {"MODE": "slow"}) == 0
+
+    def test_if_else(self):
+        content = (
+            'IF {{MODE}} == "fast"\n'
+            "CHECK_URL /fast\n"
+            "ELSE\n"
+            "CHECK_URL /slow\n"
+            "ENDIF\n"
+        )
+        assert self._run_if_scenario(content, {"MODE": "slow"}) == 0
+
+    def test_if_elseif_else(self):
+        content = (
+            'IF {{MODE}} == "a"\n'
+            "CHECK_URL /a\n"
+            'ELSE IF {{MODE}} == "b"\n'
+            "CHECK_URL /b\n"
+            "ELSE\n"
+            "CHECK_URL /other\n"
+            "ENDIF\n"
+        )
+        assert self._run_if_scenario(content, {"MODE": "b"}) == 0
+
+    def test_nested_if(self):
+        content = (
+            'IF {{A}} == "1"\n'
+            'IF {{B}} == "2"\n'
+            "CHECK_URL /nested\n"
+            "ENDIF\n"
+            "ENDIF\n"
+        )
+        assert self._run_if_scenario(content, {"A": "1", "B": "2"}) == 0
+
+    def test_undefined_var_exists(self):
+        content = (
+            "IF {{UNDEF}} exists\n"
+            "CHECK_URL /exists\n"
+            "ENDIF\n"
+        )
+        assert self._run_if_scenario(content) == 0
+
+    def test_unbalanced_if_raises(self):
+        content = (
+            'IF {{X}} == "a"\n'
+            "CHECK_URL /a\n"
+        )
+        with pytest.raises(ValueError, match="IF without matching ENDIF"):
+            self._run_if_scenario(content)
+
+    def test_orphan_endif_raises(self):
+        content = (
+            "CHECK_URL /a\n"
+            "ENDIF\n"
+        )
+        with pytest.raises(ValueError, match="ENDIF without matching IF"):
+            self._run_if_scenario(content)

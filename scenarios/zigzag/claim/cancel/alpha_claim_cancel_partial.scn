@@ -1,0 +1,44 @@
+# @title: 다건 주문 부분취소
+# @tier: regression
+# @area: claim, cancel, partial
+# @pages: /checkout/orders, /claim
+# @note: 다건 주문에서 일부 상품만 취소 — 나머지 상품은 배송전 상태 유지 확인
+# @priority: P1
+# @lifecycle: regression
+# @preconditions: order_status=결제완료, claim_type=취소, special=다건주문
+
+# 1) 주문 목록 진입 (필터 초기화를 위해 NAVIGATE로 새로고침)
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
+
+# 2) 취소 가능한 주문상세 진입 (배송전 상태)
+CLICK_ORDER_DETAIL_WITH_ACTION 취소
+WAIT_URL /checkout/orders/
+WAIT_FOR 1200
+
+# 3) 현재 주문상세 ID 저장 (부분취소 후 동일 주문 상세에 남아있어야 함)
+SAVE_ORDER_DETAIL_ID
+DUMP_STATE before_partial_cancel
+
+# 4) 취소하기 클릭 → 취소 요청 페이지 진입
+EVAL "(() => { const norm=(s)=> (s||'').replace(/\\s+/g,'').trim(); const all=[...document.querySelectorAll('*')]; const leaf=all.find(el=>norm(el.textContent)==='취소하기'); if(!leaf) throw new Error('no_cancel_action'); const clickable=leaf.closest('button,[role=button],a,[role=link],[tabindex],div,span') || leaf; clickable.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window})); return `clicked:${norm(clickable.textContent)}`; })()"
+WAIT_URL /request-cancel
+WAIT_FOR 700
+
+# 5) 부분취소: 첫 번째 상품만 선택 (전체 선택 해제 후 단건 선택)
+# 취소 요청 페이지에서 체크박스가 기본 전체 선택된 경우 일부만 선택하도록 조정
+EVAL "(() => { const norm=(s)=>(s||'').replace(/\\s+/g,'').trim(); const checkboxes=[...document.querySelectorAll('input[type=checkbox]')]; if(checkboxes.length<=1) return 'single_item_only:partial_cancel_not_applicable'; const allChecked=checkboxes.filter(c=>c.checked); if(allChecked.length>1){ for(let i=1;i<allChecked.length;i++){ const lbl=allChecked[i].closest('label') || allChecked[i].parentElement; if(lbl) lbl.click(); else allChecked[i].click(); } return 'unchecked_extras:kept_first_only'; } return 'already_single:no_change'; })()"
+WAIT_FOR 500
+
+# 6) 취소 사유 선택 + 제출
+SUBMIT_CANCEL_REQUEST "__ASK__"
+CHECK_NOT_URL /request-cancel
+
+# 7) 부분취소 후 주문상세로 돌아왔는지 확인 (동일 주문상세 유지)
+CHECK_URL /checkout/orders/
+WAIT_FOR 800
+
+# 8) 취소된 상품과 유지되는 상품이 함께 있는지 확인
+EVAL "(() => { const t=((document.body&&document.body.innerText)||'').replace(/\\s+/g,''); const hasCanceled=t.includes('취소완료')||t.includes('취소요청')||t.includes('취소중'); const hasActive=t.includes('배송전')||t.includes('배송중')||t.includes('결제완료'); if(!hasCanceled) throw new Error('partial_cancel_status_not_found:no_canceled_item'); if(!hasActive) return 'warn:no_active_item_found_may_be_single_item'; return 'partial_cancel_ok:canceled_and_active_both_present'; })()"
+DUMP_STATE claim_cancel_partial
