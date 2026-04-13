@@ -1,0 +1,16 @@
+{
+  "_comment": "테스트용 주문번호 풀. status별로 사용 가능한 주문번호를 관리합니다.",
+  "_usage": "PICK_ORDER_FROM_POOL <status> [var_name] 액션에서 자동 할당됩니다.",
+  "배송완료": {
+    "_description": "교환/반품 클레임 테스트용 (배송완료 상태 주문)",
+    "orders": []
+  },
+  "결제완료": {
+    "_description": "취소 클레임 테스트용 (결제완료 상태 주문)",
+    "orders": []
+  },
+  "주문확인중": {
+    "_description": "취소 클레임 테스트용 (주문확인중 상태 주문)",
+    "orders": []
+  }
+}

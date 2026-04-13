@@ -1,0 +1,20 @@
+# @title: 주문 상세 페이지 진입 + 주요 섹션 확인
+# @tier: regression
+# @area: order
+# @pages: /checkout/orders
+# @priority: P0
+# @lifecycle: regression
+
+# 1) 주문 목록 진입
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
+
+# 2) 아무 주문상세 진입
+CLICK_ORDER_DETAIL_BY_STATUS 전체
+WAIT_URL /checkout/orders/
+WAIT_FOR 1500
+
+# 3) 주문 상세 페이지 주요 섹션 확인
+EVAL "(function() { var body = (document.body.innerText || '').replace(/\\s+/g, ''); var sections = ['결제정보', '배송지']; var found = []; var missing = []; for (var i = 0; i < sections.length; i++) { if (body.indexOf(sections[i]) >= 0) { found.push(sections[i]); } else { missing.push(sections[i]); } } if (found.length === 0) return 'REPORT:주문상세_섹션_없음:' + missing.join(','); return 'order_detail_sections_ok:' + found.join(','); })()"
+DUMP_STATE order_detail_view

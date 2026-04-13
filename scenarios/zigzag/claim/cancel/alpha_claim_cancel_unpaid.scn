@@ -1,0 +1,28 @@
+# @title: 미입금 주문 취소
+# @tier: regression
+# @area: claim, cancel
+# @pages: /checkout/orders, /cancel
+# @priority: P1
+# @lifecycle: regression
+# @preconditions: order_status=미입금, claim_type=취소
+
+# 1) 주문 목록 진입
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 1500
+
+# 2) 결제대기/입금대기 상태 주문 탐색
+EVAL "(function() { var norm = function(s) { return (s || '').replace(/\\s+/g, '').trim(); }; var items = [].slice.call(document.querySelectorAll('[class*=order],[class*=Order],[data-testid*=order]')); var texts = [].slice.call(document.querySelectorAll('*')); var found = null; for (var i = 0; i < texts.length; i++) { var t = norm(texts[i].textContent); if ((t === '결제대기' || t === '입금대기' || t === '미입금') && texts[i].offsetHeight > 0) { found = texts[i]; break; } } if (!found) return 'REPORT:미입금_주문_없음:결제대기/입금대기 상태 주문이 목록에 없습니다'; var link = found.closest('a'); if (link) { link.click(); return 'clicked_unpaid_order'; } var parent = found.parentElement; while (parent && parent !== document.body) { if (parent.tagName === 'A' || parent.getAttribute('role') === 'link') { parent.click(); return 'clicked_unpaid_order_parent'; } parent = parent.parentElement; } return 'REPORT:미입금_주문_클릭불가:상태 텍스트는 있으나 클릭 가능한 링크 없음'; })()"
+WAIT_FOR 1500
+
+# 3) 주문상세에서 주문취소 버튼 클릭
+EVAL "(function() { if (location.href.indexOf('/checkout/orders/') < 0) return 'REPORT:주문상세_아님:url=' + location.href; var norm = function(s) { return (s || '').replace(/\\s+/g, '').trim(); }; var btns = [].slice.call(document.querySelectorAll('button,[role=button],a')); var btn = null; for (var i = 0; i < btns.length; i++) { var t = norm(btns[i].textContent); if (t === '주문취소' || t === '주문취소하기' || t === '취소하기') { btn = btns[i]; break; } } if (!btn) return 'REPORT:주문취소_버튼_없음'; btn.dispatchEvent(new MouseEvent('click', {bubbles: true, cancelable: true, view: window})); return 'clicked:주문취소'; })()"
+WAIT_FOR 1500
+
+# 4) 취소 확인 모달 처리
+EVAL "(function() { var btns = [].slice.call(document.querySelectorAll('button,[role=button]')); var norm = function(s) { return (s || '').replace(/\\s+/g, '').trim(); }; for (var i = 0; i < btns.length; i++) { var t = norm(btns[i].textContent); if (t === '확인' || t === '취소하기' || t === '네') { btns[i].click(); return 'confirm_clicked'; } } return 'no_confirm_modal'; })()"
+WAIT_FOR 2000
+
+# 5) 취소 결과 확인
+EVAL "(function() { var body = (document.body.innerText || '').replace(/\\s+/g, ''); if (body.indexOf('취소완료') >= 0 || body.indexOf('주문취소') >= 0) return 'cancel_unpaid_ok'; return 'REPORT:미입금취소_결과_미확인'; })()"
+DUMP_STATE claim_cancel_unpaid

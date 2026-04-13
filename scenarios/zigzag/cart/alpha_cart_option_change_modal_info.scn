@@ -1,0 +1,55 @@
+# @title: 장바구니 옵션변경 — 모달 내 정보 항목 검증
+# @tier: regression
+# @area: cart, option-change
+# @pages: /checkout/cart
+# @task: ORDER-11850
+# @priority: P2
+# @lifecycle: active
+# @preconditions: order_status=결제완료
+# @description: 옵션선택 모달 내 정보 표시 항목을 종합 검증
+
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/cart
+
+# ── 1) 장바구니에 테스트 상품 담기 ──
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 2200
+EVAL "(async () => { const text=(el)=>(el&&el.textContent?el.textContent:'').replace(/\\s+/g,'').trim(); const btn=(name)=>[...document.querySelectorAll('button,[role=button]')].find(b=>text(b)===name); const buy=btn('구매하기'); if(!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r=>setTimeout(r,500)); const cart=btn('장바구니'); if(!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart'; })()"
+WAIT_FOR 1500
+
+NAVIGATE https://alpha.zigzag.kr/checkout/cart
+WAIT_FOR 2000
+
+# ── 2) 옵션변경 모달 열기 ──
+CLICK_SNAPSHOT_TEXT "옵션변경"
+WAIT_FOR 1200
+
+# ── AC6 종합: 모달 내 정보 항목 일괄 검증 ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const text = modal.textContent || ''; const results = []; const checks = [ ['배송비', text.includes('배송비') || text.includes('무료배송') || text.includes('배송')], ['발송예정일', text.includes('발송예정') || text.includes('출발예정') || text.includes('영업일')], ['빠른출발뱃지', text.includes('빠른출발')], ['직진배송뱃지', text.includes('직진배송')], ['구매제한문구', text.includes('구매제한') || text.includes('인당') || text.includes('최대')], ['재입고알림', text.includes('재입고') || text.includes('알림신청')] ]; checks.forEach(([name, found]) => { results.push(name + ':' + (found ? 'FOUND' : 'NOT_FOUND')); }); return 'MODAL_INFO|' + results.join('|'); })()"
+
+# ── 변경하기 버튼 텍스트 & 바로구매 버튼 부재 확인 ──
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal'; const btns = [...modal.querySelectorAll('button,[role=button]')].map(b=>(b.textContent||'').trim()); const hasChange = btns.some(t=>t.includes('변경하기')); const hasBuyNow = btns.some(t=>t.includes('바로구매')); return 'change_btn:' + hasChange + '|buy_now_btn:' + hasBuyNow + '|all_btns:[' + btns.join(',') + ']'; })()"
+
+# 모달 닫기
+PRESS Escape
+WAIT_FOR 500
+
+# ── 직진배송 상품으로 동일 검증 (100100014) ──
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100100014
+WAIT_FOR 2200
+EVAL "(async () => { const text=(el)=>(el&&el.textContent?el.textContent:'').replace(/\\s+/g,'').trim(); const btn=(name)=>[...document.querySelectorAll('button,[role=button]')].find(b=>text(b)===name); const buy=btn('구매하기'); if(!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r=>setTimeout(r,500)); const cart=btn('장바구니'); if(!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart_zigzin'; })()"
+WAIT_FOR 1500
+
+NAVIGATE https://alpha.zigzag.kr/checkout/cart
+WAIT_FOR 2000
+
+# 직진배송 상품의 옵션변경 모달 열기
+CLICK_SNAPSHOT_TEXT "옵션변경"
+WAIT_FOR 1200
+
+# 직진배송 모달 내 정보 확인
+EVAL "(() => { const modal = document.querySelector('[role=dialog], dialog, [aria-modal=true], [class*=modal], [class*=bottomsheet], [class*=BottomSheet]'); if(!modal) return 'FAIL: no_modal_zigzin'; const text = modal.textContent || ''; const results = []; const checks = [ ['직진배송뱃지', text.includes('직진배송')], ['배송비', text.includes('배송비') || text.includes('무료배송')], ['발송예정일', text.includes('발송예정') || text.includes('출발예정')] ]; checks.forEach(([name, found]) => { results.push(name + ':' + (found ? 'FOUND' : 'NOT_FOUND')); }); return 'ZIGZIN_MODAL|' + results.join('|'); })()"
+
+PRESS Escape
+WAIT_FOR 500
+
+DUMP_STATE cart_option_change_modal_info

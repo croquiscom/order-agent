@@ -1,0 +1,46 @@
+# @title: 장바구니 경유 주문 생성 — 스토어배송
+# @tier: smoke
+# @area: cart, order, payment
+# @pages: /catalog/products, /checkout/cart, /checkout/order-sheets
+# @priority: P0
+# @lifecycle: regression
+# @preconditions: product_type=스토어배송, payment=테스트결제
+
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 3500
+EVAL "(() => { const btn = [...document.querySelectorAll('button')].find(b => (b.textContent || '').includes('주문상세 보기')); if (!btn) return 'no_order_detail_button'; btn.click(); return 'clicked_order_detail'; })()"
+WAIT_URL /checkout/orders
+CHECK_URL /checkout/orders
+SAVE_ORDER_NUMBER
+
+NAVIGATE https://alpha.zigzag.kr/catalog/products/100136725
+WAIT_FOR 2200
+EVAL "(async () => { const text=(el)=>(el&&el.textContent?el.textContent:'').replace(/\\s+/g,'').trim(); const btn=(name)=>[...document.querySelectorAll('button,[role=button]')].find(b=>text(b)===name); const buy=btn('구매하기'); if(!buy) throw new Error('no_buy_button'); buy.click(); await new Promise(r=>setTimeout(r,500)); const cart=btn('장바구니'); if(!cart) throw new Error('no_cart_button'); cart.click(); return 'clicked_cart'; })()"
+
+NAVIGATE https://alpha.zigzag.kr/checkout/cart?from=pdp
+WAIT_FOR 1800
+CLICK "text=구매하기"
+WAIT_URL /checkout/order-sheets/
+CHECK_URL /checkout/order-sheets/
+CHECK_NEW_ORDER_SHEET
+
+WAIT_FOR "text=전액사용"
+CHECK "text=전액사용"
+CLICK_SNAPSHOT_TEXT "포인트 전액사용"
+WAIT_FOR 1200
+CHECK "text=0원"
+EVAL "(() => { const labels=[...document.querySelectorAll('label,span,div')]; const agree=labels.find(el=>(el.textContent||'').includes('주문내용 확인 및 결제 동의')); let cb=null; if(agree){ const root=agree.closest('label,section,div,article')||agree.parentElement; cb=root?root.querySelector('input[type=checkbox]'):null; } if(!cb) cb=[...document.querySelectorAll('input[type=checkbox]')].pop(); if(!cb) return 'no_checkbox'; cb.checked=true; cb.dispatchEvent(new Event('input',{bubbles:true})); cb.dispatchEvent(new Event('change',{bubbles:true})); return 'checked'; })()"
+WAIT_FOR 400
+EVAL "(() => { const txt=(el)=>(el.textContent||'').replace(/\\s+/g,'').trim(); const btn=[...document.querySelectorAll('button,[role=button]')].find(el=>(txt(el).includes('0원구매하기')||txt(el).includes('0원결제하기'))); if(!btn) return 'no_zero_pay_button'; btn.click(); return `clicked:${txt(btn)}`; })()"
+WAIT_FOR 1200
+PRINT_ACTIVE_MODAL
+EVAL "(() => { const ok=[...document.querySelectorAll('button,[role=button]')].find(el=>((el.textContent||'').includes('확인'))); if(!ok) return 'no_confirm_modal'; ok.click(); return 'clicked_confirm'; })()"
+WAIT_FOR 6000
+
+NAVIGATE https://alpha.zigzag.kr/checkout/orders
+WAIT_FOR 3500
+EVAL "(() => { const btn = [...document.querySelectorAll('button')].find(b => (b.textContent || '').includes('주문상세 보기')); if (!btn) return 'no_order_detail_button'; btn.click(); return 'clicked_order_detail'; })()"
+WAIT_URL /checkout/orders
+CHECK_URL /checkout/orders
+CHECK_ORDER_NUMBER_CHANGED
+DUMP_STATE cart_order_normal

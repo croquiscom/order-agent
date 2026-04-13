@@ -1,0 +1,17 @@
+# @title: 장바구니 옵션변경 — 30일 경과 상품 옵션변경 미제공 검증
+# @tier: regression
+# @area: cart, option-change
+# @pages: /checkout/cart
+# @task: ORDER-11850
+# @priority: P2
+# @lifecycle: active
+# @preconditions: order_status=결제완료, special=30일경과
+# @description: 담은 후 30일이 지난 상품 영역에서 옵션변경 기능이 미제공되는지 검증
+
+ENSURE_LOGIN_ZIGZAG_ALPHA https://alpha.zigzag.kr/checkout/cart
+WAIT_FOR 2000
+
+# ── 30일 지난 상품 영역 존재 확인 ──
+EVAL "(() => { const text = document.body.textContent||''; const has30day = text.includes('30일') || text.includes('기간 만료') || text.includes('담은지'); if(!has30day) return 'SKIP: no_30day_section_in_cart(need_old_item)'; const sections = [...document.querySelectorAll('[class*=expired], [class*=Expired], [class*=old], [class*=30day]')]; if(sections.length === 0) return 'SKIP: no_expired_section_element'; const expiredSection = sections[0]; const optionBtn = [...expiredSection.querySelectorAll('button,[role=button]')].find(b=>(b.textContent||'').includes('옵션변경')); return optionBtn ? 'FAIL: option_change_button_found_in_30day_section' : 'PASS: no_option_change_in_30day_section'; })()"
+
+DUMP_STATE cart_option_change_30day
