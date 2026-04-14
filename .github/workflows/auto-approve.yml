@@ -11,9 +11,5 @@ jobs:
       pull-requests: write
       contents: read
     steps:
-      - name: Auto approve if title contains "chore" or "docs" or "revert" or "test"
-        if: contains(github.event.pull_request.title, 'chore') ||
-          contains(github.event.pull_request.title, 'docs') ||
-          contains(github.event.pull_request.title, 'revert') ||
-          contains(github.event.pull_request.title, 'test')
+      - name: Auto approve
         uses: hmarr/auto-approve-action@v4
