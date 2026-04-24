@@ -3207,14 +3207,18 @@ def run_scenario(
             validate_command(command)
 
             # EXPECT_FAIL 미소비 체크: 타겟 스텝이 실패 없이 성공하면 EXPECT_FAIL 위반
+            # dry-run은 실제 실행이 아니라 파싱 검증 용도이므로 미소비를 무시한다
             if expect_fail_pattern is not None and idx != expect_fail_target_idx:
-                failures += 1
-                failed_steps[expect_fail_target_idx] = f"EXPECT_FAIL violated: step succeeded but failure was expected (pattern='{expect_fail_pattern}')"
-                logger.error("EXPECT_FAIL violated at step %s: expected failure did not occur (pattern='%s')",
-                             expect_fail_target_idx, expect_fail_pattern)
-                expect_fail_pattern = None
-                if not continue_on_error:
-                    break
+                if dry_run:
+                    expect_fail_pattern = None
+                else:
+                    failures += 1
+                    failed_steps[expect_fail_target_idx] = f"EXPECT_FAIL violated: step succeeded but failure was expected (pattern='{expect_fail_pattern}')"
+                    logger.error("EXPECT_FAIL violated at step %s: expected failure did not occur (pattern='%s')",
+                                 expect_fail_target_idx, expect_fail_pattern)
+                    expect_fail_pattern = None
+                    if not continue_on_error:
+                        break
 
             # EXPECT_FAIL: 다음 스텝의 기대 실패 패턴을 설정하고 자체는 즉시 PASS
             if command.action == "EXPECT_FAIL":
