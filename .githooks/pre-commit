@@ -23,6 +23,14 @@ fi
 
 echo "[pre-commit] validating ${#STAGED_SCN[@]} .scn file(s)..."
 
+# EVAL 내 confirm_payment 우회 차단 (BLOCKED_CLICK_TARGETS는 CLICK만 커버)
+if risk=$(grep -nE '^EVAL.*confirm_payment' "${STAGED_SCN[@]}" 2>/dev/null); then
+  echo "[pre-commit] ✖ EVAL 내 'confirm_payment' 참조 차단 (실결제 안전정책 우회 위험):" >&2
+  echo "$risk" >&2
+  echo "[pre-commit]   실결제 테스트가 꼭 필요하면 ALLOW_REAL_PAYMENT=1로 실행" >&2
+  exit 1
+fi
+
 if ! command -v python3 >/dev/null 2>&1; then
   echo "[pre-commit] ERROR: python3 not found on PATH" >&2
   exit 1
