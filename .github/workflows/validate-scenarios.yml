@@ -1,0 +1,86 @@
+name: Validate scenarios
+
+on:
+  pull_request:
+    paths:
+      - "scenarios/**/*.scn"
+      - "executor/execute_scenario.py"
+      - ".githooks/pre-commit"
+      - "scripts/setup_env.sh"
+      - "tests/**"
+      - ".github/workflows/validate-scenarios.yml"
+
+concurrency:
+  group: validate-scenarios-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Collect changed .scn files
+        id: changed
+        run: |
+          base=$(git merge-base HEAD "origin/${{ github.event.pull_request.base.ref }}")
+          head="${{ github.event.pull_request.head.sha }}"
+          if ! files=$(git diff --name-only --diff-filter=ACMR "$base" "$head" -- 'scenarios/**/*.scn'); then
+            echo "::error::git diff failed (base=$base head=$head)" >&2
+            exit 1
+          fi
+          if [[ -z "$files" ]]; then
+            echo "no .scn changes — falling back to full scenarios/ set"
+            files=$(find scenarios -type f -name '*.scn')
+          fi
+          {
+            echo "files<<EOF"
+            echo "$files"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Block EVAL bypass of payment safety
+        env:
+          SCN_FILES: ${{ steps.changed.outputs.files }}
+        run: |
+          scn_files=()
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && scn_files+=("$line")
+          done <<< "$SCN_FILES"
+          [[ ${#scn_files[@]} -eq 0 ]] && exit 0
+          if risk=$(grep -nE '^EVAL.*confirm_payment' "${scn_files[@]}" 2>/dev/null); then
+            echo "::error::EVAL 내 confirm_payment 참조 감지 (실결제 안전정책 우회 위험)"
+            echo "$risk"
+            exit 1
+          fi
+
+      - name: Validate with --dry-run
+        env:
+          SCN_FILES: ${{ steps.changed.outputs.files }}
+        run: |
+          scn_files=()
+          while IFS= read -r line; do
+            [[ -n "$line" ]] && scn_files+=("$line")
+          done <<< "$SCN_FILES"
+          if [[ ${#scn_files[@]} -eq 0 ]]; then
+            echo "no scenario files to validate"
+            exit 0
+          fi
+          echo "validating ${#scn_files[@]} file(s):"
+          printf '  %s\n' "${scn_files[@]}"
+          python3 executor/execute_scenario.py --dry-run "${scn_files[@]}"

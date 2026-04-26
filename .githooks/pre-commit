@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Pre-commit hook: staged .scn 파일을 --dry-run으로 파싱 검증.
+# 설치: git config core.hooksPath .githooks (setup_env.sh가 자동 수행)
+# 우회: SKIP_SCN_VALIDATE=1 git commit ...
+
+set -euo pipefail
+
+if [[ "${SKIP_SCN_VALIDATE:-0}" == "1" ]]; then
+  exit 0
+fi
+
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+cd "$ROOT_DIR"
+
+STAGED_SCN=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && STAGED_SCN+=("$line")
+done < <(git diff --cached --name-only --diff-filter=ACMR -- '*.scn')
+
+if [[ ${#STAGED_SCN[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+echo "[pre-commit] validating ${#STAGED_SCN[@]} .scn file(s)..."
+
+# EVAL 내 confirm_payment 우회 차단 (BLOCKED_CLICK_TARGETS는 CLICK만 커버)
+if risk=$(grep -nE '^EVAL.*confirm_payment' "${STAGED_SCN[@]}" 2>/dev/null); then
+  echo "[pre-commit] ✖ EVAL 내 'confirm_payment' 참조 차단 (실결제 안전정책 우회 위험):" >&2
+  echo "$risk" >&2
+  echo "[pre-commit]   실결제 테스트가 꼭 필요하면 ALLOW_REAL_PAYMENT=1로 실행" >&2
+  exit 1
+fi
+
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[pre-commit] ERROR: python3 not found on PATH" >&2
+  exit 1
+fi
+
+if ! python3 executor/execute_scenario.py --dry-run "${STAGED_SCN[@]}" >/dev/null; then
+  echo "" >&2
+  echo "[pre-commit] ✖ scenario validation failed" >&2
+  echo "[pre-commit]   fix errors above, or bypass with SKIP_SCN_VALIDATE=1" >&2
+  exit 1
+fi
+
+echo "[pre-commit] ✓ all scenarios parsed cleanly"
